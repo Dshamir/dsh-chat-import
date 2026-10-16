@@ -129,6 +129,8 @@ Codex discovery prefers saved session titles (`thread_name` in `session_index.js
 
 Codex activity time uses the latest valid timestamp found in bounded transcript head and tail windows, combined across rollout pages. File modification time is a fallback when no transcript timestamp is available, so discovery can return activity times even when the host file service does not expose modification times. A timestamp inside a truncated record can be missed.
 
+Claude Code fork sessions (the newer desktop session menu and `--fork-session`) are discovered and imported as well: a fork transcript opens with a verbatim copy of the parent's records and appends its own from the fork point, so the main-transcript test looks at **both ends** of the file (the file name's stem appearing at either end means the file owns that session) and the session identity is the **last** `sessionId` in the transcript — previously such files were classified as subagent auxiliary transcripts and skipped wholesale. The copied prefix (the parent's history) stays in the log: a fork's context does contain it, so the parent and the fork overlap by one stretch of history.
+
 Hermes discovery scans `%LOCALAPPDATA%\hermes` and `~/.hermes` on Windows. If `LOCALAPPDATA` is unset, it uses `~/AppData/Local/hermes` for the Windows data directory. On macOS and Linux, it scans `~/.hermes`.
 
 ## Docs

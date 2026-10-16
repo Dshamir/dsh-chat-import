@@ -108,6 +108,53 @@ test('claude：标题载体 custom-title > ai-title > 首问（尾部记录靠 r
   assert.equal(sessions.find((s) => s.sessionId === 'sess-pasted').title, '首页改造需求')
 })
 
+test('claude：fork 转录被发现（前缀是父会话记录的拷贝，自己的 id 只在尾部）', async () => {
+  // 新版 Claude Code 的 fork 文件 = 父会话记录的逐字拷贝 + 从 fork 点起追加自己的记录。
+  // 主转录判定因此必须看两端：只看头部的旧口径把整类 fork 判成辅助 transcript 而扫不到。
+  const root = join(HOME, '.claude', 'projects')
+  const slug = join(root, 'proj-a')
+  const parent = 'parent-001'
+  const smallFork = 'fork-small-003'
+  const bigFork = 'fork-big-004'
+  const parentHead = [
+    j({ sessionId: parent, type: 'custom-title', customTitle: '父会话标题' }),
+    j({ sessionId: parent, type: 'user', cwd: 'D:\\demo\\claude-proj', message: { role: 'user', content: '父会话提问' } }),
+    j({ sessionId: parent, type: 'assistant', message: { role: 'assistant', content: '父会话回答' } }),
+  ]
+  // 撑过 HEAD_MAX_BYTES：fork 自己的记录头读不到，只能靠尾部（readTail）认出来
+  const filler = 'x'.repeat(300 * 1024)
+  const files = new Map([
+    [root, { type: 'dir' }],
+    [slug, { type: 'dir' }],
+    [join(slug, parent + '.jsonl'), { type: 'file', mtimeMs: 1786000001000, text: parentHead.join('\n') }],
+    // 小 fork：头即全文，尾部记录与头部同在
+    [join(slug, smallFork + '.jsonl'), { type: 'file', mtimeMs: 1786000002000, text: [
+      ...parentHead,
+      j({ sessionId: smallFork, type: 'custom-title', customTitle: '父会话标题 (fork)' }),
+      j({ sessionId: smallFork, type: 'user', cwd: 'D:\\demo\\claude-proj', message: { role: 'user', content: 'fork 之后的问题' } }),
+    ].join('\n') }],
+    // 大 fork：前缀（父会话记录）超过头读上限
+    [join(slug, bigFork + '.jsonl'), { type: 'file', mtimeMs: 1786000003000, text: [
+      parentHead[0],
+      j({ sessionId: parent, type: 'user', cwd: 'D:\\demo\\claude-proj', message: { role: 'user', content: '父会话提问' } }),
+      j({ sessionId: parent, type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: filler }] } }),
+      j({ sessionId: bigFork, type: 'custom-title', customTitle: '父会话标题 (fork)' }),
+      j({ sessionId: bigFork, type: 'user', cwd: 'D:\\demo\\claude-proj', message: { role: 'user', content: '大 fork 的问题' } }),
+      j({ sessionId: bigFork, type: 'assistant', message: { role: 'assistant', content: '大 fork 的回答', usage: { input_tokens: 4242 } } }),
+    ].join('\n') }],
+  ])
+  const { sessions, total } = await discoverSessions({ path: root, format: 'claude', host: memoryHost(files), imports: {} })
+  assert.equal(total, 3) // 父会话 + 两个 fork；fork 文件不得按父会话 id 建条目
+  assert.equal(sessions.filter((s) => s.sessionId === parent).length, 1)
+  for (const id of [smallFork, bigFork]) {
+    const s = sessions.find((x) => x.sessionId === id)
+    assert.ok(s, id + ' 未被发现')
+    assert.equal(s.title, '父会话标题 (fork)') // 尾部 custom-title（后入者胜）
+    assert.equal(s.project, 'claude-proj') // 拷贝段的 cwd
+  }
+  assert.equal(sessions.find((s) => s.sessionId === bigFork).contextTokens, 4242) // 尾部 usage
+})
+
 test('qoder：~/.qoder/projects 发现、ai-title 标题、cwd 项目名、subagents 跳过', async () => {
   const root = join(HOME, '.qoder', 'projects')
   const proj = join(root, '-home-u-demo')

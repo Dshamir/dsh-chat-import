@@ -128,6 +128,8 @@ Codex 扫描优先使用 `session_index.jsonl` 中保存的会话标题（`threa
 
 Codex 活动时间采用日志头尾有界窗口内的最新有效时间戳，并合并所有 rollout 分页的结果；没有日志时间时才回退文件修改时间，因此宿主文件服务不提供修改时间时也能返回活动时间。被窗口截断的记录中的时间戳可能遗漏。
 
+Claude Code 的 fork 会话（新版桌面端会话菜单与 `--fork-session`）同样被发现并导入：fork 转录把父会话的记录逐字拷贝在文件开头、自己的记录从 fork 点起追加，所以主转录判定看文件的**两端**（文件名 stem 出现在头部或尾部即算该文件自己的会话），会话身份取转录里**最后**出现的 `sessionId`——此前这类文件被当成子代理辅助转录整类跳过，一条都扫不到。拷贝段（父会话历史）保留在日志里：fork 的上下文本就有它，父会话与 fork 会话因此重叠一份历史。
+
 Hermes 默认扫描 Windows 的 `%LOCALAPPDATA%\hermes` 与 `~/.hermes`；`LOCALAPPDATA` 未设置时，Windows 数据目录回退到 `~/AppData/Local/hermes`。macOS 与 Linux 默认扫描 `~/.hermes`。
 
 ## 文档

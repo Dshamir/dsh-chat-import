@@ -215,6 +215,38 @@ test('convertClaudeJsonl: 无 fileStem 参数保持原行为（纯函数直接�
   assert.equal(out.meta.id, 'import-sess-simple-001')
 })
 
+test('convertClaudeJsonl: fork 转录按自己的 sessionId 建会话（前缀的父会话记录不夺身份）', () => {
+  // 新版 Claude Code 的 fork：新文件以**父会话记录的逐字拷贝**开头（同 sessionId / uuid /
+  // 时间戳），fork 点之后才追加自己的记录。身份取最后出现的 sessionId——取首条会拿到父会话
+  // 的 id：既与父会话的导入撞 `import-<父id>`，又让 fileStem 判定把整份 fork 当辅助
+  // transcript 跳过（发现侧与导入侧因此都看不到它）。
+  const parent = 'sess-parent-001'
+  const fork = 'sess-fork-002'
+  const raw = [
+    JSON.stringify({ sessionId: parent, type: 'custom-title', customTitle: '父会话标题' }),
+    JSON.stringify({ sessionId: parent, type: 'user', cwd: '/tmp/proj', uuid: 'p1', message: { role: 'user', content: '父会话第一个问题' } }),
+    JSON.stringify({ sessionId: parent, type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: '父会话回答' }] } }),
+    JSON.stringify({ sessionId: fork, type: 'custom-title', customTitle: '父会话标题' }),
+    JSON.stringify({ sessionId: fork, type: 'custom-title', customTitle: '父会话标题 (fork)' }),
+    JSON.stringify({ sessionId: fork, type: 'user', cwd: '/tmp/proj', uuid: 'f1', message: { role: 'user', content: 'fork 之后的问题' } }),
+    JSON.stringify({ sessionId: fork, type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'fork 的回答' }] } }),
+  ].join('\n')
+  const out = convertClaudeJsonl(raw, { fileStem: fork, sourcePath: '/home/u/.claude/projects/-tmp-proj/' + fork + '.jsonl' })
+  assert.equal(out.skipReason, undefined)
+  assert.equal(out.meta.sourceId, fork) // 自己的 id，不是父会话的
+  assert.equal(out.meta.id, 'import-' + fork) // 不与父会话的 import-<父id> 撞
+  assert.equal(out.title, '父会话标题 (fork)') // 标题载体同样后到者胜（尾部 = 自己那次改名）
+  // 拷贝段与 fork 自己的一段都进日志（源侧 fork 的上下文里本就有拷贝段）
+  assert.equal(out.turns.length, 2)
+  assert.deepEqual(out.turns.map((t) => t.prompt), ['父会话第一个问题', 'fork 之后的问题'])
+  assert.equal(out.meta.cwd, '/tmp/proj') // 拷贝段的首条 cwd（实测 fork 自己的记录 cwd 相同）
+  assertMessageOrderLegal(out.events)
+  // 文件名不参与身份判定：面板「从文件导入」（local-jsonl，不传 fileStem）同样认自己的 id
+  const noStem = convertClaudeJsonl(raw, { sourcePath: '/home/u/.claude/projects/-tmp-proj/' + fork + '.jsonl' })
+  assert.equal(noStem.meta.sourceId, fork)
+  assert.equal(noStem.meta.id, 'import-' + fork)
+})
+
 test('convertClaudeJsonl: 后置的 tool/result 挂到 call 所属 step（不落最近一步）', () => {
   // 异步工具：调用在 step1，结果随后续 assistant（step2）之后到达。tool_result
   // 必须挂回 call 所属 step（step1），否则投影顺序里带 tool_calls 的 assistant

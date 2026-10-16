@@ -2,6 +2,18 @@
 
 All notable changes to `dsh-chat-import` are documented here, newest first.
 
+## [Unreleased]
+
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">问题修复</h3>
+
+- **Claude Code 的 fork 会话此前一条都扫不到，现在被发现并导入为独立会话**：新版 Claude Code（桌面端会话菜单与 `--fork-session`）的 fork 转录把父会话的记录**逐字拷贝**在文件开头，自己的记录从 fork 点起追加——旧的「文件名 stem == 首条记录的 sessionId」口径把整份 fork 判成子代理辅助 transcript，发现层与导入层都看不到它（本机实测 `~/.claude/projects` 下 35 份转录：4 份 fork 全部漏掉，只认出 31 份）。主转录判定改为看文件两端（文件名 stem 出现在头部**或**尾部即算该文件自己的会话），会话身份取转录里**最后**出现的 `sessionId`：fork 因此以自己的 id 落成 `import-<fork id>`，不再与父会话的 `import-<父 id>` 撞车、也不再被「文件名与 sessionId 不一致」的辅助转录判定跳过。拷贝段（父会话历史）照常进日志——fork 的上下文里本就有它，父会话与 fork 会话在 DSH 里因此重叠一份历史。
+
+<h3 id="en-unreleased">Bug Fixes</h3>
+
+- **Claude Code fork sessions were invisible; they are now discovered and imported as their own sessions**: a fork transcript written by newer Claude Code (the desktop session menu and `--fork-session`) opens with a **verbatim copy** of the parent's records and appends its own from the fork point, so the old test — "file stem == the first record's sessionId" — classified the whole file as a subagent auxiliary transcript, invisible to both discovery and import (measured here: all 4 forks among the 35 transcripts under `~/.claude/projects` were missed, only 31 recognised). The main-transcript test now looks at both ends of the file (the stem at either end means the file owns that session) and session identity is the **last** `sessionId` in the transcript: a fork lands as `import-<fork id>`, no longer colliding with the parent's `import-<parent id>` and no longer skipped by the "file name does not match sessionId" auxiliary-transcript rule. The copied prefix (the parent's history) still goes into the log — a fork's context does contain it, so parent and fork overlap by one stretch of history in DSH.
+
 ## [0.26.0] - 2026-10-13
 
 [中文](#cn-0.26.0) | [English](#en-0.26.0)

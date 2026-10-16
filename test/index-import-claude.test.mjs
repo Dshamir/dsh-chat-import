@@ -245,6 +245,56 @@ test('目录批量导入：subagent 辅助 transcript 跳过，主 transcript �
   assert.deepEqual(validateJsonSchemaValue(def.output.schema, value), [])
 })
 
+test('目录批量导入：fork 转录导入为独立会话（不与父会话撞 id、不被当成辅助 transcript）', async () => {
+  // 新版 Claude Code 的 fork：fork 文件以父会话记录的逐字拷贝开头。此前它按首条记录的
+  // sessionId（父会话的）判身份 → 文件名与 sessionId 不一致被当辅助 transcript 跳过，
+  // 目录批量里整类 fork 会话一条都进不来。
+  const parent = 'sess-parent-001'
+  const fork = 'sess-fork-002'
+  const parentPrologue = [
+    JSON.stringify({ sessionId: parent, type: 'custom-title', customTitle: '父会话标题' }),
+    JSON.stringify({ sessionId: parent, type: 'user', cwd: hostAbs('D:/demo/proj'), uuid: 'p1', timestamp: '2026-08-01T00:00:00Z', message: { role: 'user', content: '父会话提问' } }),
+  ]
+  const tree = {
+    'D:\\demo\\proj': 'dir',
+    ['D:\\demo\\proj\\' + parent + '.jsonl']: [
+      ...parentPrologue,
+      JSON.stringify({ sessionId: parent, type: 'assistant', timestamp: '2026-08-01T00:00:01Z', message: { role: 'assistant', content: [{ type: 'text', text: '父会话回答' }] } }),
+    ].join('\n'),
+    ['D:\\demo\\proj\\' + fork + '.jsonl']: [
+      // 拷贝段：与父会话文件逐字相同（同 sessionId / uuid / 时间戳）
+      ...parentPrologue,
+      JSON.stringify({ sessionId: parent, type: 'assistant', timestamp: '2026-08-01T00:00:01Z', message: { role: 'assistant', content: [{ type: 'text', text: '父会话回答' }] } }),
+      // fork 点之后：自己的记录
+      JSON.stringify({ sessionId: fork, type: 'custom-title', customTitle: '父会话标题 (fork)' }),
+      JSON.stringify({ sessionId: fork, type: 'user', cwd: hostAbs('D:/demo/proj'), uuid: 'f1', timestamp: '2026-08-01T00:10:00Z', message: { role: 'user', content: 'fork 之后的问题' } }),
+      JSON.stringify({ sessionId: fork, type: 'assistant', timestamp: '2026-08-01T00:10:01Z', message: { role: 'assistant', content: [{ type: 'text', text: 'fork 的回答' }] } }),
+    ].join('\n'),
+  }
+  const { ctx, persistence, attached } = makeCtx(tree)
+  apply(ctx)
+  const def = chatDef(ctx, 'claude')
+  const value = await def.execute({ path: 'D:\\demo\\proj' })
+
+  assert.equal(value.mode, 'batch')
+  assert.equal(value.total, 2)
+  assert.equal(value.imported, 2)
+  assert.equal(value.skipped, 0)
+  assert.equal(value.failed, 0)
+  assert.deepEqual(value.results.map((r) => r.sessionId).sort(), ['import-sess-fork-002', 'import-sess-parent-001'])
+  assert.equal(persistence.sessions.size, 2)
+  assert.equal(attached.length, 2)
+
+  // fork 会话落盘：标题走 fork 自己的改名，内容含拷贝段 + 自己那一段（源侧形态如此）
+  const saved = persistence.sessions.get('import-sess-fork-002')
+  assert.ok(saved)
+  assert.equal(saved.events.at(-1).type, 'session/title')
+  assert.equal(saved.events.at(-1).data.title, 'Claude · 父会话标题 (fork)')
+  assert.equal(saved.events.filter((e) => e.type === 'user/message' && e.data.source.kind === 'user').length, 2)
+  assertEnvelopeHygiene(saved.events)
+  assert.deepEqual(validateJsonSchemaValue(def.output.schema, value), [])
+})
+
 test('单文件导入辅助 transcript：跳过并返回 skipReason', async () => {
   const { ctx, persistence } = makeCtx({ 'D:\\demo\\proj\\agent-abc123.jsonl': load('sess-simple-001.jsonl') })
   apply(ctx)
