@@ -17,6 +17,50 @@ beforeEach(() => {
   clearInflightScans()
 })
 
+test('codex：无文件 mtime 时读取日志尾部活动时间，复制文件的 mtime 不覆盖对话时间', async () => {
+  const root = join(HOME, '.codex', 'sessions')
+  const createdAt = '2026-03-10T12:00:00Z'
+  const latest = '2026-03-11T12:00:00Z'
+  const text = [
+    j({ type: 'session_meta', timestamp: createdAt, payload: { id: 'activity' } }),
+    j({ type: 'response_item', payload: { text: 'x'.repeat(300 * 1024) } }),
+    j({ type: 'event_msg', timestamp: latest, payload: { type: 'task_complete' } }),
+    j({ type: 'event_msg', timestamp: 'invalid' }),
+    '{"timestamp":',
+  ].join('\n')
+  for (const mtimeMs of [undefined, Date.parse('2026-04-01T00:00:00Z')]) {
+    clearScanCache()
+    const host = memoryHost(new Map([
+      [root, { type: 'dir' }],
+      [join(root, 'activity.jsonl'), { type: 'file', text, mtimeMs }],
+    ]))
+    const { sessions } = await discoverSessions({ path: root, format: 'codex', host, imports: {} })
+    assert.equal(sessions[0].lastActiveAt, Date.parse(latest))
+    assert.equal(sessions[0].createdAt, Date.parse(createdAt))
+    assert.equal(host.counters.tails, 1)
+  }
+})
+
+test('codex：旧宿主缺少尾读能力时保留头部时间，无日志时间时回退 mtime 或空值', async () => {
+  const root = join(HOME, '.codex', 'sessions')
+  const time = Date.parse('2026-03-10T12:00:00Z')
+  const host = memoryHost(new Map([
+    [root, { type: 'dir' }],
+    ...[
+      ['head', { timestamp: '2026-03-10T12:00:00Z' }, undefined],
+      ['mtime', { timestamp: 'invalid' }, time],
+      ['missing', {}, undefined],
+    ].map(([id, meta, mtimeMs]) => [join(root, `${id}.jsonl`), {
+      type: 'file', mtimeMs, text: j({ type: 'session_meta', payload: { id }, ...meta }),
+    }]),
+  ]))
+  delete host.readTail
+  const { sessions } = await discoverSessions({ path: root, format: 'codex', host, imports: {} })
+  assert.equal(sessions.find((s) => s.sessionId === 'head').lastActiveAt, time)
+  assert.equal(sessions.find((s) => s.sessionId === 'mtime').lastActiveAt, time)
+  assert.equal(sessions.find((s) => s.sessionId === 'missing').lastActiveAt, null)
+})
+
 test('codex：session_meta 签名、注入过滤标题、项目名（cwd basename / YYYY-MM 回退）', async () => {
   const root = join(HOME, '.codex', 'sessions')
   const withCwd = join(root, '2026', '03', '10', 'rollout-20260310T120000-019e3b3f-636d-7cb3-aaab-0255eb45ad4f.jsonl')

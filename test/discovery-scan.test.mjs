@@ -107,7 +107,7 @@ test('codex：分页链书签命中时不重读 rollout；书签只存页摘要�
     assert.equal(first.total, 2)
     assert.equal(byId[thread].sourcePath, pageA, '链的 sourcePath = 首页')
     assert.equal(byId[thread].title, '首页的提问')
-    assert.equal(byId[thread].lastActiveAt, 1786000005000, 'lastActiveAt = 最新页 mtime')
+    assert.equal(byId[thread].lastActiveAt, Date.parse('2026-09-15T19:55:00.000Z'), 'lastActiveAt = 分页日志中最新的时间')
     assert.equal(byId[thread].createdAt, Date.parse('2026-09-14T10:54:33.000Z'))
     const reads = host.counters.reads
     const second = await scan({ path: root, format: 'codex', host })
