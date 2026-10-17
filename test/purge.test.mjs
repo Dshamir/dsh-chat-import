@@ -10,7 +10,7 @@ import {
   resolveRegistryDir, rememberImport, loadImports,
 } from '../lib/imports.mjs'
 import {
-  listImportHistory, deleteImportedSession, purgeAllImports, collectRegistryTargets,
+  listImportHistory, deleteImportedSession, purgeAllImports, collectRegistryTargets, clearSessionArtifactsForReplace,
 } from '../lib/purge.mjs'
 import { hostAbs } from './_support/host-path.mjs'
 import { makeCtx as makeHostCtx, makePersistence as makeHostPersistence } from './_support/fake-host.mjs'
@@ -215,6 +215,34 @@ test('assertPluginSession / clearSessionArtifactsForReplace：支持带下划线
   const ctx = makeCtx(persistence)
   const res = await deleteImportedSession(ctx, dir, sessionId)
   assert.equal(res.sessionId, sessionId)
+})
+
+test('clearSessionArtifactsForReplace：清除旧工件并保留导入记录和工作区挂接', async () => {
+  const dir = resolveRegistryDir()
+  const sourcePath = hostAbs('D:/demo/replace.jsonl')
+  const sessionId = 'import-replace-001'
+  await rememberImport(dir, sourcePath, {
+    kind: 'single', dshId: sessionId, turns: 1, events: 6, importedAt: T0,
+  })
+  const persistence = makePersistence()
+  const artDir = join(process.env.DSH_HOME, 'sessions', '_proj', sessionId)
+  mkdirSync(artDir, { recursive: true })
+  writeFileSync(join(artDir, 'session.jsonl'), '{"type":"x"}\n')
+  const detached = []
+  const removed = []
+  persistence.remove = async (id) => { removed.push(id) }
+  const workspace = { path: hostAbs('D:/demo'), sessionIds: [sessionId] }
+  const ctx = makeCtx(persistence, {
+    sessions: { store: new Map([[sessionId, { detach: () => { detached.push(sessionId) } }]]) },
+    workspaceRegistry: { list: () => [workspace] },
+  })
+  const out = await clearSessionArtifactsForReplace(ctx, sessionId)
+  assert.deepEqual(out, { sessionId, files: 1 })
+  assert.throws(() => accessSync(artDir), { code: 'ENOENT' })
+  assert.deepEqual(detached, [sessionId])
+  assert.deepEqual(removed, [sessionId])
+  assert.equal((await loadImports(dir)).imports[sourcePath].dshId, sessionId)
+  assert.deepEqual(workspace.sessionIds, [sessionId])
 })
 
 test('collectRegistryTargets：multi 子表展开', () => {
