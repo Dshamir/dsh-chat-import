@@ -129,6 +129,8 @@ Codex discovery prefers saved session titles (`thread_name` in `session_index.js
 
 Codex activity time uses the latest valid timestamp found in bounded transcript head and tail windows, combined across rollout pages. File modification time is a fallback when no transcript timestamp is available, so discovery can return activity times even when the host file service does not expose modification times. A timestamp inside a truncated record can be missed.
 
+Hermes discovery scans `%LOCALAPPDATA%\hermes` and `~/.hermes` on Windows. If `LOCALAPPDATA` is unset, it uses `~/AppData/Local/hermes` for the Windows data directory. On macOS and Linux, it scans `~/.hermes`.
+
 ## Docs
 
 | Document | Description |

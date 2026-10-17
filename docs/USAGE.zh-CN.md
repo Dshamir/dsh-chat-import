@@ -95,6 +95,8 @@ import_chat({ format: "claude", path: "C:\Users\<you>\.claude\projects\<slug>\<s
 
 每次导入结果都会上报 `status` 与任何异常——畸形行、疑似敏感信息、逐源丢弃——绝不静默吞掉。
 
+Hermes 默认扫描 Windows 的 `%LOCALAPPDATA%\hermes` 与 `~/.hermes`（`LOCALAPPDATA` 未设置时回退到 `~/AppData/Local/hermes`），macOS 与 Linux 使用 `~/.hermes`。每个根目录优先读取 `state.db`，数据库不可用时回退 JSONL；其他位置可显式传入 `path`。
+
 ### import_agents — 把 pi/opencode/Claude/Codex 的 agent、prompt、skill、指令与配置参考转换为 DSH skills
 
 `import_agents` 把 **pi**（`~/.pi/agent/{agents,prompts}/*.md`）、**opencode**（`~/.config/opencode/{agents,skill}/*.md`）、**Claude**（`~/.claude/memory/<group>/*.md`、`~/.claude/skills/<skill>/SKILL.md`，或经 `claudeProjectRoot` 显式指定的项目根 `CLAUDE.md`）与 **Codex**（`~/.codex/skills/<skill>/SKILL.md`、`~/.codex/instructions.md`、`~/.codex/AGENTS.md`、`~/.codex/config.toml`）的自定义 agent、mode prompt、skill、指令与配置参考转换为**持久化 DSH skill 资产**——`$DSH_AGENTS_HOME/skills/<name>/SKILL.md`（`$DSH_AGENTS_HOME` 缺省 `~/.agents`），成为任意会话里可发现的技能。这与运行时只读的 Claude 桥（`context-bridge`，默认关）互补：后者把 Claude 的 memory/CLAUDE.md/skills 临时注入；本工具把 pi/opencode/Claude/Codex 资产持久落盘。
