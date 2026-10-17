@@ -2,17 +2,33 @@
 
 All notable changes to `dsh-chat-import` are documented here, newest first.
 
-## [Unreleased]
+## [0.26.1] - 2026-10-17
 
-[中文](#cn-unreleased) | [English](#en-unreleased)
+[中文](#cn-0.26.1) | [English](#en-0.26.1)
 
-<h3 id="cn-unreleased">问题修复</h3>
+<h3 id="cn-0.26.1">问题修复</h3>
 
 - **Claude Code 的 fork 会话此前一条都扫不到，现在被发现并导入为独立会话**：新版 Claude Code（桌面端会话菜单与 `--fork-session`）的 fork 转录把父会话的记录**逐字拷贝**在文件开头，自己的记录从 fork 点起追加——旧的「文件名 stem == 首条记录的 sessionId」口径把整份 fork 判成子代理辅助 transcript，发现层与导入层都看不到它（本机实测 `~/.claude/projects` 下 35 份转录：4 份 fork 全部漏掉，只认出 31 份）。主转录判定改为看文件两端（文件名 stem 出现在头部**或**尾部即算该文件自己的会话），会话身份取转录里**最后**出现的 `sessionId`：fork 因此以自己的 id 落成 `import-<fork id>`，不再与父会话的 `import-<父 id>` 撞车、也不再被「文件名与 sessionId 不一致」的辅助转录判定跳过。拷贝段（父会话历史）照常进日志——fork 的上下文里本就有它，父会话与 fork 会话在 DSH 里因此重叠一份历史。
+- **Codex 会话标题优先取保存的标题索引**：面板此前只按 rollout 里的首问起标题，Codex 里改过的名字显示不出来；现在优先读 `session_index.jsonl` 的 `thread_name`（按行流式读取，同一 thread 取最后一条有效记录），没有索引标题才回退首问。首问兜底同时与导入共用同一提取口径：注入的页面上下文信封被剥掉——信封独占一条消息、或与真实提问同在一段文本里都只保留提问，上下文不再变成标题。
+- **Codex 会话的活动时间改为取日志里的时间戳**：面板排序此前用 rollout 文件的修改时间，复制、恢复或同步过的会话时间会整体失真；现在从每条 rollout 的头尾有界窗口取最新有效时间戳（滚过分页合并），文件修改时间只在日志里完全没有时间戳时兜底。被窗口截断的记录中的时间戳可能遗漏。
+- **Windows 下 Hermes 的默认扫描根补全**：此前只扫 `~/.hermes`，而 Windows 上的 Hermes 把数据放在 `%LOCALAPPDATA%\hermes`，面板一条会话都列不出来（手动填绝对路径可以导入）。现在 Windows 同时扫 `%LOCALAPPDATA%\hermes` 与 `~/.hermes`，`LOCALAPPDATA` 未设置或为空时回退 `~/AppData/Local/hermes`；macOS 与 Linux 仍为 `~/.hermes`。每个根优先读 `state.db`，数据库不可用时回退 JSONL。
 
-<h3 id="en-unreleased">Bug Fixes</h3>
+<h3 id="cn-0.26.1">其他变更</h3>
+
+- **CI 覆盖率护栏恢复生效**：`check-coverage` 解析器此前只认 `ℹ ` 前缀，而 CI 的 Node 22 输出 `# `，从 2026-10-13 起每个 PR 的 test job 都红（一行报告都解析不到，误报「目录下限有记账但目录下没有文件」）。现在两种前缀都收，`coverage` 脚本再固定 `--test-reporter=spec`，Node 22 / 24 口径一致；同时补上解析器与 `clearSessionArtifactsForReplace` 的用例，Node 22 下的逐文件下限继续有效。
+
+<h3 id="en-0.26.1">Bug Fixes</h3>
 
 - **Claude Code fork sessions were invisible; they are now discovered and imported as their own sessions**: a fork transcript written by newer Claude Code (the desktop session menu and `--fork-session`) opens with a **verbatim copy** of the parent's records and appends its own from the fork point, so the old test — "file stem == the first record's sessionId" — classified the whole file as a subagent auxiliary transcript, invisible to both discovery and import (measured here: all 4 forks among the 35 transcripts under `~/.claude/projects` were missed, only 31 recognised). The main-transcript test now looks at both ends of the file (the stem at either end means the file owns that session) and session identity is the **last** `sessionId` in the transcript: a fork lands as `import-<fork id>`, no longer colliding with the parent's `import-<parent id>` and no longer skipped by the "file name does not match sessionId" auxiliary-transcript rule. The copied prefix (the parent's history) still goes into the log — a fork's context does contain it, so parent and fork overlap by one stretch of history in DSH.
+- **Codex discovery prefers the saved title index**: the panel used to title sessions from the rollout's first prompt only, so a rename made in Codex was invisible. Discovery now reads `thread_name` from `session_index.jsonl` first (streamed line by line; the last valid record wins) and falls back to the first prompt only when no indexed title exists. That fallback now shares the import extraction: injected page-context envelopes are stripped — whether the envelope is its own message or shares a block with the real prompt, only the prompt is kept, so context text no longer becomes the title.
+- **Codex activity time now comes from transcript timestamps**: the panel ordered sessions by rollout file mtime, so copied, restored or synced trees showed skewed times. The latest valid timestamp is now read from bounded head and tail windows of each rollout page and combined across the thread; file mtime is only a fallback when no timestamp exists at all. A timestamp inside a truncated record can be missed.
+- **Hermes default discovery now covers the Windows layout**: only `~/.hermes` was scanned, while Windows Hermes stores its data in `%LOCALAPPDATA%\hermes`, so the panel listed nothing (importing by absolute path worked). Windows now scans both `%LOCALAPPDATA%\hermes` and `~/.hermes`, falling back to `~/AppData/Local/hermes` when `LOCALAPPDATA` is unset or empty; macOS and Linux still use `~/.hermes`. Each root reads `state.db` first and falls back to JSONL when the database is unavailable.
+
+<h3 id="en-0.26.1">Chores</h3>
+
+- **The CI coverage gate is effective again**: the `check-coverage` parser only accepted the `ℹ ` prefix while CI's Node 22 prints `# `, so every PR's test job had been red since 2026-10-13 (no report row was parsed, misreported as "a directory floor is booked but the directory has no files"). Both prefixes are now accepted and the `coverage` script pins `--test-reporter=spec` so Node 22 and 24 agree; tests now pin the parser for both prefixes and cover `clearSessionArtifactsForReplace`, keeping the per-file floors effective on Node 22.
+
+**Full Changelog**: [v0.26.0...v0.26.1](https://github.com/Nwflower/dsh-chat-import/compare/v0.26.0...v0.26.1)
 
 ## [0.26.0] - 2026-10-13
 
