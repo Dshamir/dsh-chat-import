@@ -49,6 +49,19 @@ is still supported), attach measured numbers to performance work, and keep
 user-facing behavior in sync with the READMEs. Anchor ids carry the version so
 multiple sections can coexist on the one page.
 
+## Releases
+
+A release starts from a tag the maintainer pushes (`git push --follow-tags`): that
+commit already carries the version's CHANGELOG section and the bumped
+`package.json`. `.github/workflows/release.yml` runs on the tag, checks that the
+tag names `package.json`'s version and that the commit is on `main`, validates the
+CHANGELOG section with `node scripts/release-notes.mjs --version x.y.z --check`
+(the same script prints the notes), runs the full gate set, publishes to npm from
+the tag with trusted publishing and provenance (no stored token), and creates or
+updates the GitHub Release from that section. There is no local publish step;
+rerunning the workflow skips a version already on npm, and dispatching it by hand
+(one `tag` input) validates every step without publishing.
+
 ## Commits & PRs
 
 - Conventional commits (`feat:` / `fix:` / `refactor:` / `chore:` / `docs:` /

@@ -1,0 +1,113 @@
+name: release
+
+# 发布入口：维护者推 tag（v*）。本地只做 CHANGELOG + `npm version` + 推 tag；门禁、
+# npm publish（trusted publishing + provenance）与 GitHub Release 都在这里完成。
+#
+# 为什么由 tag 触发而不是 main：tag 是「这一版发布的就是这个提交」的唯一凭据，
+# 重跑同一个 tag 也是同一份产物；推 main 不应该自动变成发布。
+#
+# 为什么有 workflow_dispatch：tag 一旦推出去，workflow 文件就固定在那个提交上了，
+# 首次接入或改流程时先在 main 上把除发布以外的每一步跑一遍（本入口只校验、不发布）。
+# 发布只发生在 push tag 事件上，手动入口因此不会在没有 tag 的情况下写 npm。
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要验证的 tag（如 v0.27.0），必须与 package.json 的 version 对应'
+        required: true
+        type: string
+
+# contents: 建 / 改 GitHub Release；id-token: trusted publishing 与 provenance 换 OIDC token。
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      # trusted publishing 要求 npm >= 11.5.1（Node 22 自带的是 npm 10）。
+      - run: npm install --global npm@^11.5.1
+      - name: Resolve the release version
+        id: version
+        run: |
+          ref="${{ inputs.tag || github.ref_name }}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${ref}" ]; then
+            echo "::error title=Release::tag ${ref} does not name package.json's version ${version}"
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+            git merge-base --is-ancestor "${GITHUB_SHA}" origin/main || {
+              echo "::error title=Release::tag ${ref} is not on main"
+              exit 1
+            }
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      # 发布说明就是 CHANGELOG 的版本节：版式不对在这里失败，一步也不发布。
+      - name: Check the CHANGELOG section and write the release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/release-notes.mjs --version "${VERSION}" --out "${RUNNER_TEMP}/release-notes.md"
+      - run: npm ci
+      # 与 ci.yml 的 test job 同一组门禁：发布只能从这些门禁都通过的那棵树出去。
+      - run: npm run check:coverage
+      - run: npm run lint
+      - run: npm run check:linux
+      - run: npm run check:leaks
+      - run: npm run check:links
+      - run: npm run check:tests
+      - run: npm run build
+      - name: Publish to npm
+        if: ${{ github.event_name == 'push' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if npm view "dsh-chat-import@${VERSION}" version > /dev/null 2>&1; then
+            echo "dsh-chat-import@${VERSION} is already on npm; skipping publish"
+            exit 0
+          fi
+          publish() {
+            if [[ "${VERSION}" == *-* ]]; then
+              # npm 拒绝不带 dist-tag 的预发布；它不能成为 latest。
+              npm publish --access public --provenance --tag next
+            else
+              npm publish --access public --provenance
+            fi
+          }
+          if ! publish; then
+            # 注册表同步有延迟：publish 已经成功但立刻回查不到时，不能误判后再发一次。
+            sleep 20
+            npm view "dsh-chat-import@${VERSION}" version > /dev/null 2>&1
+          fi
+      - name: Create or update the GitHub Release
+        if: ${{ github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          notes="${RUNNER_TEMP}/release-notes.md"
+          if gh release view "v${VERSION}" > /dev/null 2>&1; then
+            gh release edit "v${VERSION}" --notes-file "${notes}"
+          else
+            prerelease=""
+            case "${VERSION}" in *-*) prerelease="--prerelease" ;; esac
+            gh release create "v${VERSION}" --verify-tag --title "${VERSION}" --notes-file "${notes}" ${prerelease}
+          fi

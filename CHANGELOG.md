@@ -2,6 +2,18 @@
 
 All notable changes to `dsh-chat-import` are documented here, newest first.
 
+## [Unreleased]
+
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">其他变更</h3>
+
+- **发布流程移入 CI**：发布不再在本地执行 `npm publish` / `gh release`。推送 `v*` tag 后，`.github/workflows/release.yml` 校验 tag 与 `package.json` 版本一致、tag 提交在 `main` 上、CHANGELOG 版本节版式正确（`scripts/release-notes.mjs`），跑完全部门禁后以 trusted publishing + provenance 发布到 npm，并用同一版本节建 / 更新 GitHub Release；重跑会跳过 npm 上已有的版本。手动 `workflow_dispatch` 只校验、不发布。
+
+<h3 id="en-unreleased">Chores</h3>
+
+- **Releases now run in CI**: publishing no longer happens locally (`npm publish` / `gh release`). Pushing a `v*` tag makes `.github/workflows/release.yml` check that the tag names `package.json`'s version and sits on `main`, validate the CHANGELOG section (`scripts/release-notes.mjs`), run the full gate set, publish to npm with trusted publishing and provenance, and create or update the GitHub Release from the same section; reruns skip a version already on npm. A manual `workflow_dispatch` validates without publishing.
+
 ## [0.26.1] - 2026-10-17
 
 [中文](#cn-0.26.1) | [English](#en-0.26.1)

@@ -30,6 +30,7 @@ npm run check:linux    # 跨平台路径纪律静态检查
 npm run check:leaks    # 敏感信息泄漏扫描
 npm run check:links    # 文档相对链接检查
 npm run check:tests    # 测试面纪律：每个来源有测试锚点 + 单测文件停止线
+npm run release:notes -- --version x.y.z   # 校验并预览该版本的发布说明（release workflow 用同一份）
 npm run build:client   # 由 src/client/ 分片组装 lib/client.js（改面板后必跑）
 npm run build          # 发布面自检：client bundle 新鲜度 + files 完整性 + 入口可达模块全部在 files 内 + 语法 + lockfile
 ```
@@ -71,7 +72,7 @@ npm run build          # 发布面自检：client bundle 新鲜度 + files 完�
 
 - 使用 conventional commit 前缀，一个逻辑变更一个 commit，不提交 WIP。
 - 提交前必过：`npm test` / `npm run check:linux` / `npm run lint`，工作树无杂物。
-- 发布流程：更新 CHANGELOG → `npm version patch|minor` 并同步 lockfile → 打 tag → `npm publish` → GitHub Release。
+- 发布流程：更新 CHANGELOG → `npm version patch|minor` 并同步 lockfile → `git push --follow-tags`。推送 tag 后由 `.github/workflows/release.yml` 跑门禁、执行 `npm publish`（trusted publishing，无存储 token；带 provenance）并建 / 更新 GitHub Release；本地不执行 `npm publish` / `gh release`。tag 必须等于 `package.json` 的版本、且指向 `main` 上的提交；发布说明由 `scripts/release-notes.mjs` 从 CHANGELOG 对应版本节切出，本地可 `npm run release:notes -- --version x.y.z --check` 预检。手动 `workflow_dispatch` 只校验不发布。
 - 发布说明取自 CHANGELOG 对应版本节。
 - CHANGELOG 版式（与 dsh 上游发布说明同规范，0.19.0 起）：
   - 版本节：`## [x.y.z] - YYYY-MM-DD`（最新在最上）；跨版本合并只用于无法逐版追溯的旧区间。
