@@ -128,6 +128,8 @@ Codex 扫描优先使用 `session_index.jsonl` 中保存的会话标题（`threa
 
 Codex 活动时间采用日志头尾有界窗口内的最新有效时间戳，并合并所有 rollout 分页的结果；没有日志时间时才回退文件修改时间，因此宿主文件服务不提供修改时间时也能返回活动时间。被窗口截断的记录中的时间戳可能遗漏。
 
+Hermes 默认扫描 Windows 的 `%LOCALAPPDATA%\hermes` 与 `~/.hermes`；`LOCALAPPDATA` 未设置时，Windows 数据目录回退到 `~/AppData/Local/hermes`。macOS 与 Linux 默认扫描 `~/.hermes`。
+
 ## 文档
 
 | 文档 | 说明 |

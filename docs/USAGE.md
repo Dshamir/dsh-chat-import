@@ -96,6 +96,8 @@ import_chat({ format: "claude", path: "C:\Users\<you>\.claude\projects\<slug>\<s
 
 Every import result reports its `status` and any anomalies — malformed lines, suspected secrets, per-source drops — nothing is silently swallowed.
 
+Hermes default discovery scans both `%LOCALAPPDATA%\hermes` and `~/.hermes` on Windows (`~/AppData/Local/hermes` when `LOCALAPPDATA` is unset). macOS and Linux use `~/.hermes`. Each root reads `state.db` first and falls back to JSONL when the database is unavailable. Use an explicit `path` for other locations.
+
 ### import_agents — convert pi/opencode/Claude/Codex agents, prompts, skills & config into DSH skills
 
 `import_agents` converts custom agents, mode prompts, skills, instructions and config references from **pi** (`~/.pi/agent/{agents,prompts}/*.md`), **opencode** (`~/.config/opencode/{agents,skill}/*.md`), **Claude** (`~/.claude/memory/<group>/*.md`, `~/.claude/skills/<skill>/SKILL.md`, or an explicit project-root `CLAUDE.md` via `claudeProjectRoot`) and **Codex** (`~/.codex/skills/<skill>/SKILL.md`, `~/.codex/instructions.md`, `~/.codex/AGENTS.md`, `~/.codex/config.toml`) into **persistent DSH skill assets** — `$DSH_AGENTS_HOME/skills/<name>/SKILL.md` (`$DSH_AGENTS_HOME` defaults to `~/.agents`), so they become discoverable skills in any session. This complements the runtime-only Claude bridge (`context-bridge`, off by default): that one injects Claude memory/CLAUDE.md/skills transiently; this one persists them (plus pi/opencode/Codex assets).
