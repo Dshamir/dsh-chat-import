@@ -31,8 +31,13 @@ const fileArg = process.argv.find((a) => a.startsWith('--file='))
 const text = fileArg ? readFileSync(fileArg.slice('--file='.length), 'utf8') : readFileSync(0, 'utf8')
 const lines = text.split('\n')
 
+// 报告行的前缀随 Node 大版本变：22 是 `#`（CI 的 setup-node 固定 22），24 起是 `ℹ`。前缀写死
+// 会让解析器在另一个版本上一行都匹配不到——落到「目录下限有记账但目录下没有文件」那种误报，
+// 且**每个 PR 都红**（2026-10-13 起 ci 的 test job 长期红，根因就是这里）。两种都收。
+const ROW_PREFIX = '(?:\\u2139|#)'
+
 // ── 1. 失败用例不许被管道吞掉 ────────────────────────────────────────────────
-const failLine = lines.find((l) => /^\u2139\s+fail\s+\d+/.test(l.replace(/\r/g, '')))
+const failLine = lines.find((l) => new RegExp('^' + ROW_PREFIX + '\\s+fail\\s+\\d+').test(l.replace(/\r/g, '')))
 const failed = failLine ? Number(/\d+/.exec(failLine)[0]) : 0
 const problems = []
 if (failed > 0) problems.push(`有 ${failed} 个失败用例（本脚本接在管道后，必须显式检查）`)
@@ -43,11 +48,11 @@ const files = []
 let globalLine = null
 for (const raw of lines) {
   const l = raw.replace(/\r/g, '')
-  if (/^\u2139\s+all files\s*\|/.test(l)) {
+  if (new RegExp('^' + ROW_PREFIX + '\\s+all files\\s*\\|').test(l)) {
     globalLine = Number(/\|\s*([\d.]+)\s*\|/.exec(l)[1])
     continue
   }
-  const m = /^\u2139(\s+)(\S.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|/.exec(l)
+  const m = new RegExp('^' + ROW_PREFIX + '(\\s+)(\\S.*?)\\s*\\|\\s*(.*?)\\s*\\|\\s*(.*?)\\s*\\|\\s*(.*?)\\s*\\|').exec(l)
   if (!m) continue
   const indent = m[1].length
   const name = m[2].trim()
