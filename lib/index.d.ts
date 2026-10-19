@@ -115,7 +115,7 @@ export type LocalJsonlFormat =
 /** import_chat 的源格式枚举（值 = 来源短名；除 local-jsonl 外与 discovery 的 ScanFormat 一致）。 */
 export type ChatFormat =
   | 'claude' | 'codex' | 'chatgpt' | 'cursor' | 'gemini' | 'antigravity' | 'reasonix' | 'opencode'
-  | 'mimocode' | 'kilocode' | 'teleagent' | 'zcode' | 'grokbuild' | 'openclaw' | 'hermes' | 'pi'
+  | 'mimocode' | 'kilocode' | 'teleagent' | 'zcode' | 'grokbuild' | 'openclaw' | 'hermes' | 'pi' | 'omp'
   | 'kimi' | 'qoder' | 'workbuddy' | 'qwen' | 'trae' | 'vibe' | 'continue' | 'cline' | 'goose'
   | 'zed' | 'crush' | 'dsh' | 'dsh4' | 'local-jsonl'
 
@@ -129,7 +129,7 @@ export interface ImportChatOptions extends ImportOptions {
   branch?: 'main' | 'all'
   /** 仅一库多会话来源（opencode / mimocode / kilocode / teleagent / trae / zcode / goose / zed / crush）：只导入指定源会话 id（缺省导入全部）。 */
   sessionIds?: string[]
-  /** 仅压缩感知来源（claude / cline / codex / continue / crush / grokbuild / kimi / mimocode / kilocode / opencode / pi / teleagent / zcode / zed）：true 时导入全量历史并**不发**压缩检查点（模型看到全量）；默认 false 尊重压缩（日志保全量、模型只见摘要 + 压缩点之后）。该开关进参数指纹，换值须重导。名单与 `import_chat` 的描述串同源（由 spec.fullHistory 派生）。 */
+  /** 仅压缩感知来源（claude / cline / codex / continue / crush / grokbuild / kimi / mimocode / kilocode / opencode / pi / omp / teleagent / zcode / zed）：true 时导入全量历史并**不发**压缩检查点（模型看到全量）；默认 false 尊重压缩（日志保全量、模型只见摘要 + 压缩点之后）。omp 另受该开关影响：false 时按 reset_boundary（/clear）切掉清空点之前的内容。该开关进参数指纹，换值须重导。名单与 `import_chat` 的描述串同源（由 spec.fullHistory 派生）。 */
   fullHistory?: boolean
   /** 仅 claude：true 时把结构化 toolUseResult sidecar（编辑 diff、问答、退出码等）以文本并入工具结果。进参数指纹，换值须 force。 */
   includeToolUseResult?: boolean
@@ -207,6 +207,10 @@ export interface DecisionReport {
   compactions?: number
   /** 源压缩只有边界、没有摘要正文（Kimi 旧格式 wire）→ 该源退化为切窗口，前段历史不进日志。 */
   compactionSummaryMissing?: boolean
+  /** omp 的 `/clear` 次数（>0 才占键）：源侧模型视角从最后一次清空点之后开始，而 DSH 的压缩检查点必须有摘要正文 → 清空点之前的内容不进日志（`fullHistory: true` 保留全量）。 */
+  resetBoundaries?: number
+  /** 无轮可挂的注入消息数（bash / python 执行活动）。 */
+  droppedInjected?: number
   appendedTurns?: number
   appendedEvents?: number
   /** 源已增长但读不到 DSH 侧日志长度 → 不续写也不复制，跳过。 */
@@ -634,7 +638,7 @@ export interface RetractResult {
 /** 发现层可扫描的格式（= lib/discovery.mjs 的 FORMATS；比 ChatFormat 少 local-jsonl）。 */
 export type ScanFormat =
   | 'claude' | 'codex' | 'cursor' | 'gemini' | 'antigravity' | 'reasonix' | 'opencode' | 'mimocode'
-  | 'zcode' | 'grokbuild' | 'openclaw' | 'pi' | 'hermes' | 'kimi' | 'kilocode' | 'qoder'
+  | 'zcode' | 'grokbuild' | 'openclaw' | 'pi' | 'omp' | 'hermes' | 'kimi' | 'kilocode' | 'qoder'
   | 'chatgpt' | 'workbuddy' | 'qwen' | 'continue' | 'cline' | 'goose' | 'dsh4' | 'zed'
   | 'crush' | 'teleagent' | 'trae' | 'vibe' | 'dsh'
 

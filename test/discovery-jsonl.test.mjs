@@ -207,6 +207,42 @@ test('pi：会话头签名（version 字段）、session_info 名称标题、cwd
   assert.equal(s.lastActiveAt, 1786000002000)
 })
 
+test('omp：定宽标题槽作标题（旧文件回退 title_change）、cwd 项目名、非会话头自拒', async () => {
+  const root = join(HOME, '.omp', 'agent', 'sessions', '-demo-omp-proj')
+  const s1 = join(root, '2026-06-03T10-00-00-000Z_019f0a22.jsonl')
+  const s2 = join(root, '2026-06-04T10-00-00-000Z_019f0a33.jsonl')
+  const files = new Map([
+    [root, { type: 'dir' }],
+    [s1, { type: 'file', mtimeMs: 1786000002000, text: [
+      j({ type: 'title', v: 1, title: '重构模块讨论', source: 'user', updatedAt: '2026-06-03T10:00:00.000Z', pad: '' }),
+      j({ type: 'session', version: 3, id: '019f0a22', timestamp: '2026-06-03T10:00:00.000Z', cwd: 'D:\\demo\\omp-proj' }),
+      j({ type: 'message', id: 'a1', parentId: null, timestamp: '2026-06-03T10:00:01.000Z', message: { role: 'user', content: '帮我重构这个模块', timestamp: 1786000001000 } }),
+    ].join('\n') }],
+    // 旧文件：没有标题槽 → 头窗口里最后的 title_change
+    [s2, { type: 'file', mtimeMs: 1786000004000, text: [
+      j({ type: 'session', version: 3, id: '019f0a33', timestamp: '2026-06-04T10:00:00.000Z', cwd: 'D:\\demo\\omp-proj' }),
+      j({ type: 'message', id: 'b1', parentId: null, timestamp: '2026-06-04T10:00:01.000Z', message: { role: 'user', content: '跑一下测试', timestamp: 1786000003000 } }),
+      j({ type: 'title_change', id: 't1', parentId: 'b1', timestamp: '2026-06-04T10:00:02.000Z', title: '测试收尾', source: 'user' }),
+    ].join('\n') }],
+    // 只有标题槽、没有会话头 → 自拒
+    [join(root, 'sess-other.jsonl'), { type: 'file', text: [
+      j({ type: 'title', v: 1, title: 'x', updatedAt: '2026-06-04T10:00:00.000Z', pad: '' }),
+    ].join('\n') }],
+  ])
+  const host = memoryHost(files)
+
+  const { sessions, total } = await discoverSessions({ path: root, format: 'omp', host, imports: {} })
+  assert.equal(total, 2)
+  const first = sessions.find((s) => s.sessionId === '019f0a22')
+  assert.equal(first.format, 'omp')
+  assert.equal(first.title, '重构模块讨论') // 标题槽优先
+  assert.equal(first.project, 'omp-proj') // 记录内 cwd basename
+  assert.equal(first.createdAt, Date.parse('2026-06-03T10:00:00.000Z'))
+  assert.equal(first.lastActiveAt, 1786000002000)
+  const second = sessions.find((s) => s.sessionId === '019f0a33')
+  assert.equal(second.title, '测试收尾') // 无标题槽 → title_change
+})
+
 test('cursor：slug 解码为真实工作区名分组，<timestamp> 解析时间，非仓库 slug 不归组', async () => {
   clearWorkspacePathCache()
   const slugDots = 'e-dev-suite-demo-Client-app'

@@ -37,6 +37,7 @@ const IMPLEMENTATION = {
   kimi: ['lib/convert/kimi.mjs'],
   // pi 家族（pi / omp）的转换实现共用 lib/convert/pi-family.mjs：开关在引擎里消费
   pi: ['lib/convert/pi-family.mjs'],
+  omp: ['lib/convert/pi-family.mjs'],
   zcode: ['lib/convert/zcode.mjs'],
   zed: ['lib/convert/zed.mjs'],
   opencode: ['lib/sources/opencode.mjs'],

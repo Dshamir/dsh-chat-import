@@ -1,0 +1,6 @@
+{"type":"session","version":3,"id":"019f0a22-3333-7444-8555-666677778888","timestamp":"2025-06-05T10:00:00.000Z","cwd":"D:\\demo\\omp-proj"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2025-06-05T10:00:01.000Z","message":{"role":"user","content":"第一个问题","timestamp":1749117601000}}
+{"type":"message","id":"a1","parentId":"u1","timestamp":"2025-06-05T10:00:02.000Z","message":{"role":"assistant","content":[{"type":"text","text":"第一个回答"}],"model":"claude-sonnet-4-5","stopReason":"stop","timestamp":1749117602000}}
+{"type":"reset_boundary","id":"r1","parentId":"a1","timestamp":"2025-06-05T10:01:00.000Z"}
+{"type":"message","id":"u2","parentId":"r1","timestamp":"2025-06-05T10:01:01.000Z","message":{"role":"user","content":"第二个问题","timestamp":1749117661000}}
+{"type":"message","id":"a2","parentId":"u2","timestamp":"2025-06-05T10:01:02.000Z","message":{"role":"assistant","content":[{"type":"text","text":"第二个回答"}],"model":"claude-sonnet-4-5","stopReason":"stop","timestamp":1749117662000}}

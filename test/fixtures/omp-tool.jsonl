@@ -1,0 +1,9 @@
+{"type":"session","version":3,"id":"019f0a22-2222-7333-8444-555566667777","timestamp":"2025-06-04T10:00:00.000Z","cwd":"D:\\demo\\omp-proj"}
+{"type":"message","id":"a1","parentId":null,"timestamp":"2025-06-04T10:00:01.000Z","message":{"role":"user","content":"列出目录内容","timestamp":1749031201000}}
+{"type":"message","id":"b1","parentId":"a1","timestamp":"2025-06-04T10:00:02.000Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"先看看目录里有什么"},{"type":"text","text":"我来列一下目录。"},{"type":"toolCall","id":"call-1","name":"bash","arguments":{"command":"ls -la"}}],"provider":"openai","stopReason":"toolUse","timestamp":1749031202000}}
+{"type":"message","id":"c1","parentId":"b1","timestamp":"2025-06-04T10:00:03.000Z","message":{"role":"toolResult","toolCallId":"call-1","toolName":"bash","content":[{"type":"text","text":"total 4\n-rw-r--r-- 1 user user 120 Jun  4 10:00 README.md"}],"isError":false,"timestamp":1749031203000}}
+{"type":"model_change","id":"m1","parentId":"c1","timestamp":"2025-06-04T10:00:04.000Z","model":"openai/gpt-5","role":"default"}
+{"type":"message","id":"d1","parentId":"m1","timestamp":"2025-06-04T10:00:05.000Z","message":{"role":"assistant","content":[{"type":"text","text":"目录里只有一个 README.md。"}],"provider":"openai","stopReason":"stop","timestamp":1749031205000}}
+{"type":"message","id":"e1","parentId":"d1","timestamp":"2025-06-04T10:01:00.000Z","message":{"role":"pythonExecution","code":"print(1)","output":"1","exitCode":0,"cancelled":false,"timestamp":1749031260000}}
+{"type":"message","id":"f1","parentId":"e1","timestamp":"2025-06-04T10:01:01.000Z","message":{"role":"fileMention","files":[{"path":"README.md","content":"# demo"}],"timestamp":1749031261000}}
+{"type":"title_change","id":"t1","parentId":"f1","timestamp":"2025-06-04T10:02:00.000Z","title":"目录与执行","previousTitle":"","source":"user"}

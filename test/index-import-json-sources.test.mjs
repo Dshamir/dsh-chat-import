@@ -635,3 +635,57 @@ test('import_pi 非 Pi 文件：单文件跳过并返回 skipReason', async () =
   assert.equal(persistence.sessions.size, 0)
   assert.deepEqual(validateJsonSchemaValue(def.output.schema, value), [])
 })
+
+// ── omp（oh-my-pi）：与 pi 同族，工具层要保证标题槽标题、/clear 上报与 fullHistory 指纹 ──
+
+test('import_omp 单文件：标题槽标题、cwd 归组、返回值符合 schema', async () => {
+  const { ctx, persistence, attached } = makeCtx({ 'D:\\demo\\omp\\2025-06-03_omp-simple.jsonl': load('omp-simple.jsonl') })
+  apply(ctx)
+  const def = chatDef(ctx, 'omp')
+  const value = await def.execute({ path: 'D:\\demo\\omp\\2025-06-03_omp-simple.jsonl' })
+
+  assert.equal(value.mode, 'single')
+  assert.equal(value.sessionId, 'import-019f0a22-1111-7222-8333-444455556666')
+  assert.equal(value.turns, 2)
+  assert.equal(value.messages, 4)
+  assert.equal(value.alreadyImported, false)
+  assert.deepEqual(validateJsonSchemaValue(def.output.schema, value), [])
+
+  const saved = persistence.sessions.get('import-019f0a22-1111-7222-8333-444455556666')
+  assert.ok(saved)
+  assert.equal(saved.meta.cwd, hostAbs('D:/demo/omp-proj'))
+  assert.equal(saved.events.at(-1).type, 'session/title')
+  assert.match(saved.events.at(-1).data.title, /^omp · /)
+  assert.equal(attached.length, 1)
+})
+
+test('import_omp：reset_boundary（/clear）上报 resetBoundaries，fullHistory 换值走 argsChanged', async () => {
+  const { ctx, persistence } = makeCtx({ 'D:\\demo\\omp\\r.jsonl': load('omp-reset.jsonl') })
+  apply(ctx)
+  const def = chatDef(ctx, 'omp')
+  const first = await def.execute({ path: 'D:\\demo\\omp\\r.jsonl' })
+  // 清空点之前的内容未进日志 → 结果里点名（失败要大声），且字段在输出 schema 内不被丢掉
+  assert.equal(first.resetBoundaries, 1)
+  assert.equal(first.turns, 1)
+  assert.deepEqual(validateJsonSchemaValue(def.output.schema, first), [])
+  assert.equal(persistence.sessions.size, 1)
+
+  // fullHistory 进参数指纹：换值重导不另建会话，走 argsChanged 跳过
+  const second = await def.execute({ path: 'D:\\demo\\omp\\r.jsonl', fullHistory: true })
+  assert.equal(second.alreadyImported, true)
+  assert.equal(second.argsChanged, true)
+  assert.equal(persistence.sessions.size, 1)
+  assert.deepEqual(validateJsonSchemaValue(def.output.schema, second), [])
+})
+
+test('import_omp 非会话文件：单文件跳过并返回 skipReason（点名 oh-my-pi）', async () => {
+  const { ctx, persistence } = makeCtx({ 'D:\\demo\\omp\\codex.jsonl': load('codex-simple.jsonl') })
+  apply(ctx)
+  const def = chatDef(ctx, 'omp')
+  const value = await def.execute({ path: 'D:\\demo\\omp\\codex.jsonl' })
+  assert.equal(value.mode, 'single')
+  assert.equal(value.skipped, 1)
+  assert.match(value.skipReason, /oh-my-pi/)
+  assert.equal(persistence.sessions.size, 0)
+  assert.deepEqual(validateJsonSchemaValue(def.output.schema, value), [])
+})

@@ -30,6 +30,7 @@
 | `openclaw` | OpenClaw session JSONL (~/.openclaw/agents) |
 | `hermes` | Hermes db state.db (~/.hermes) |
 | `pi` | Pi session JSONL (~/.pi/agent/sessions) |
+| `omp` | oh-my-pi session JSONL (~/.omp/agent/sessions) |
 | `kimi` | Kimi CLI / Kimi Code session directory (wire.jsonl + state.json) |
 | `qoder` | Qoder CLI session JSONL (~/.qoder/projects) |
 | `workbuddy` | WorkBuddy session JSONL (~/.workbuddy/projects) |

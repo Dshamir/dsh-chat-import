@@ -3,7 +3,7 @@
     const SOURCES = [
       // DSH 两代置顶（紧随「全部来源」）：这是本插件自己的会话格式，最常被用来做迁移/续聊
       "", "dsh", "dsh4", "claude-code", "codex", "chatgpt", "cursor", "gemini", "antigravity", "reasonix",
-      "opencode", "mimocode", "teleagent", "kilocode", "zcode", "grokbuild", "openclaw", "pi", "hermes", "kimi", "qoder", "workbuddy", "qwen", "trae", "vibe", "continue", "cline", "goose", "zed", "crush",
+      "opencode", "mimocode", "teleagent", "kilocode", "zcode", "grokbuild", "openclaw", "pi", "omp", "hermes", "kimi", "qoder", "workbuddy", "qwen", "trae", "vibe", "continue", "cline", "goose", "zed", "crush",
     ];
     // 「导入到」下拉：dsh3 / dsh4 = 建指定代次的 DSH 会话日志（宿主按 header.version 落盘），
     // 默认项由探测到的宿主版本决定（面板在首个扫描响应里带回 dshVersion）。其余值 = 转投到
@@ -13,7 +13,7 @@
     const FORMAT_SOURCE = {
       claude: "claude-code", codex: "codex", chatgpt: "chatgpt", cursor: "cursor",
       gemini: "gemini", antigravity: "antigravity", reasonix: "reasonix", opencode: "opencode", mimocode: "mimocode", teleagent: "teleagent", kilocode: "kilocode", zcode: "zcode",
-      grokbuild: "grokbuild", openclaw: "openclaw", pi: "pi", hermes: "hermes",
+      grokbuild: "grokbuild", openclaw: "openclaw", pi: "pi", omp: "omp", hermes: "hermes",
       kimi: "kimi", qoder: "qoder", workbuddy: "workbuddy", qwen: "qwen", trae: "trae", vibe: "vibe", continue: "continue", cline: "cline", goose: "goose", zed: "zed", crush: "crush", dsh: "dsh", dsh4: "dsh4",
     };
     // 来源展示名（产品名不翻译）
@@ -22,7 +22,7 @@
       gemini: "Gemini CLI", antigravity: "Antigravity", reasonix: "Reasonix", opencode: "OpenCode", mimocode: "MimoCode",
       teleagent: "TeleAgent",
       kilocode: "Kilo Code",
-      zcode: "ZCode", grokbuild: "Grok Build", openclaw: "OpenClaw", pi: "Pi",
+      zcode: "ZCode", grokbuild: "Grok Build", openclaw: "OpenClaw", pi: "Pi", omp: "oh-my-pi",
       hermes: "Hermes", kimi: "Kimi CLI", qoder: "Qoder CLI", workbuddy: "WorkBuddy",
       qwen: "QwenWork", trae: "Trae Work", vibe: "Mistral Vibe", continue: "Continue", cline: "Cline", goose: "Goose", zed: "Zed", crush: "Crush",
       // DSH 按会话日志代次拆两项（与 discovery 的 format 一一对应）：V0–V3 归 "dsh"，V4+ 归 "dsh4"。

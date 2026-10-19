@@ -1,0 +1,8 @@
+{"type":"session","version":3,"id":"019f0a22-4444-7555-8666-777788889999","timestamp":"2025-06-06T10:00:00.000Z","cwd":"D:\\demo\\omp-proj"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2025-06-06T10:00:01.000Z","message":{"role":"user","content":"第一个问题","timestamp":1749204001000}}
+{"type":"message","id":"a1","parentId":"u1","timestamp":"2025-06-06T10:00:02.000Z","message":{"role":"assistant","content":[{"type":"text","text":"第一个回答"}],"model":"claude-sonnet-4-5","stopReason":"stop","timestamp":1749204002000}}
+{"type":"message","id":"u2","parentId":"a1","timestamp":"2025-06-06T10:01:00.000Z","message":{"role":"user","content":"第二个问题","timestamp":1749204060000}}
+{"type":"message","id":"a2","parentId":"u2","timestamp":"2025-06-06T10:01:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"第二个回答"}],"model":"claude-sonnet-4-5","stopReason":"stop","timestamp":1749204061000}}
+{"type":"compaction","id":"k1","parentId":"a2","timestamp":"2025-06-06T10:02:00.000Z","summary":"用户问了两个问题，都已经回答。","shortSummary":"两问两答","firstKeptEntryId":"u2","tokensBefore":42000,"method":"soft"}
+{"type":"message","id":"u3","parentId":"k1","timestamp":"2025-06-06T10:03:00.000Z","message":{"role":"user","content":"第三个问题","timestamp":1749204180000}}
+{"type":"message","id":"a3","parentId":"u3","timestamp":"2025-06-06T10:03:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"第三个回答"}],"model":"claude-sonnet-4-5","stopReason":"stop","timestamp":1749204181000}}

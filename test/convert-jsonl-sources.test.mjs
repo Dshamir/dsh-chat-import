@@ -1,11 +1,11 @@
-// convert-jsonl-sources.test.mjs — JSONL 源转换（cursor / pi）
-// composer id 派生、pi 压缩边界与保留窗口。
+// convert-jsonl-sources.test.mjs — JSONL 源转换（cursor / pi / omp）
+// composer id 派生、pi 压缩边界与保留窗口、omp 的标题槽与 /clear 边界。
 // 由 test/convert.test.mjs 按主题拆出（纯移动：用例与断言未改）。
 import { test } from 'node:test'
 import { assertNativeCompaction, derivedSurfaceMessages } from './_support/compaction.mjs'
 import assert from 'node:assert/strict'
 
-import { convertCursorJsonl, convertPiJsonl, SESSION_FORMAT_VERSION, validateSessionEvents } from '../lib/convert/index.mjs'
+import { convertCursorJsonl, convertPiJsonl, convertOmpJsonl, SESSION_FORMAT_VERSION, validateSessionEvents } from '../lib/convert/index.mjs'
 import { pinSourcedSessionTitle } from '../lib/sourced-title.mjs'
 
 import { assertEnvelopeHygiene } from './_support/envelope.mjs'
@@ -214,4 +214,91 @@ test('convertPiJsonl: 无 session 头行 / 无用户回合 → skipped', () => {
   const empty = convertPiJsonl('{"type":"session","version":3,"id":"x","timestamp":"2025-06-05T10:00:00.000Z","cwd":"D:\\\\demo"}', {})
   assert.equal(empty.meta, null)
   assert.equal(empty.skipped, 1)
+})
+
+// ── omp（oh-my-pi）：与 pi 同族（共用 pi-family 引擎），差异在标题载体、model_change 字段
+//    与 reset_boundary（/clear）────────────────────────────────────────────────────
+
+test('convertOmpJsonl: 定宽标题槽作标题、头行元数据、平衡回合', () => {
+  const out = convertOmpJsonl(load('omp-simple.jsonl'), { sourcePath: 'D:\\demo\\omp\\2025-06-03_omp-simple.jsonl' })
+  assert.equal(out.turns.length, 2)
+  assert.equal(out.messages, 4)
+  assert.equal(out.toolCalls, 0)
+  assert.equal(out.meta.id, 'import-019f0a22-1111-7222-8333-444455556666')
+  assert.equal(out.meta.sourceId, '019f0a22-1111-7222-8333-444455556666')
+  assert.equal(out.meta.version, SESSION_FORMAT_VERSION)
+  assert.equal(out.meta.cwd, 'D:\\demo\\omp-proj')
+  // 标题取定宽标题槽（源侧列表用的就是它），不是头里的 title 兜底
+  assert.equal(out.title, '重构模块讨论')
+  assert.equal(out.events.find((e) => e.type === 'session/title').data.title, '重构模块讨论')
+  assertEnvelopeHygiene(out.events)
+  assertSeqContinuity(out.events)
+  // 有标题 → 标题事件收尾（无标题的来源以 turn/end 收尾）
+  assert.equal(out.events.at(-1).type, 'session/title')
+  assert.equal(out.events.filter((e) => e.type === 'turn/end').length, 2)
+  const asst = out.events.find((e) => e.type === 'assistant/message').data.message
+  assert.deepEqual(asst.source, { kind: 'model', provider: 'oh-my-pi', model: 'claude-sonnet-4-5' })
+})
+
+test('convertOmpJsonl: 旧文件无标题槽 → title_change；model_change.model 供会话模型；python 执行与 @file 内联降级为文本', () => {
+  const out = convertOmpJsonl(load('omp-tool.jsonl'), {})
+  assert.equal(out.turns.length, 1)
+  assert.equal(out.toolCalls, 1)
+  assert.equal(out.title, '目录与执行') // 无标题槽 → 活动路径上最后的 title_change
+  const call = out.events.find((e) => e.type === 'tool/call')
+  assert.equal(call.data.arguments, '{"command":"ls -la"}')
+  assertToolPairing(out.events)
+  assertMessageOrderLegal(out.events)
+  // 消息自身不带 model：会话级模型来自 model_change 的 `model`（pi 的字段名是 modelId）
+  const assts = out.events.filter((e) => e.type === 'assistant/message')
+  assert.equal(assts.length, 2)
+  for (const a of assts) assert.equal(a.data.message.source.model, 'openai/gpt-5')
+  // pythonExecution / fileMention 用源自身 convertToLlm 的文本形态降级（挂到当前轮）
+  const texts = out.turns[0].steps.flatMap((s) => s.content).filter((c) => c.type === 'text').map((c) => c.text)
+  assert.ok(texts.some((t) => t.startsWith('Ran Python:\n```python\nprint(1)\n```') && t.includes('Output:')), 'python 执行文本缺失')
+  assert.ok(texts.some((t) => t === '<file path="README.md">\n# demo\n</file>'), '@file 内联文本缺失')
+})
+
+test('convertOmpJsonl: reset_boundary（/clear）切掉清空点之前的内容并上报；fullHistory 保留全量', () => {
+  const out = convertOmpJsonl(load('omp-reset.jsonl'), {})
+  // 源侧模型视角从最后一次 /clear 之后开始 → 只重建清空点之后的轮
+  assert.deepEqual(out.turns.map((t) => t.prompt), ['第二个问题'])
+  assert.equal(out.resetBoundaries, 1)
+  assert.equal(out.compacted, undefined)
+  assert.equal(out.events.some((e) => e.type.startsWith('compaction/')), false)
+  assertMessageOrderLegal(out.events)
+  assert.equal(validateSessionEvents(out.events).ok, true)
+
+  const full = convertOmpJsonl(load('omp-reset.jsonl'), { fullHistory: true })
+  assert.deepEqual(full.turns.map((t) => t.prompt), ['第一个问题', '第二个问题'])
+  assert.equal(full.resetBoundaries, undefined) // 保留全量时没有可上报的丢弃
+  assertMessageOrderLegal(full.events)
+})
+
+test('convertOmpJsonl: compaction → 原生压缩检查点（firstKeptEntryId 定保留窗口），fullHistory 不发', () => {
+  const out = convertOmpJsonl(load('omp-compaction.jsonl'), {})
+  assert.equal(out.compacted, true)
+  assert.equal(out.compactions, 1)
+  assert.deepEqual(out.turns.map((t) => t.prompt), ['第一个问题', '第二个问题', '第三个问题'])
+  assert.deepEqual(out.turns.map((t) => t.shadowed === true), [true, false, false])
+  assert.equal(out.turns[1].compaction.summary, '用户问了两个问题，都已经回答。')
+  assert.equal(assertNativeCompaction(out.events), 1)
+  const derived = derivedSurfaceMessages(out.events)
+  assert.equal(derived[2], 'user:用户问了两个问题，都已经回答。')
+  assert.deepEqual(derived.slice(3), ['user:第二个问题', 'assistant:第二个回答', 'user:第三个问题', 'assistant:第三个回答'])
+  assert.equal(validateSessionEvents(out.events).ok, true)
+  assertMessageOrderLegal(out.events)
+
+  const full = convertOmpJsonl(load('omp-compaction.jsonl'), { fullHistory: true })
+  assert.equal(full.compacted, undefined)
+  assert.equal(full.events.some((e) => e.type.startsWith('compaction/')), false)
+  assert.deepEqual(full.turns.map((t) => t.prompt), ['第一个问题', '第二个问题', '第三个问题'])
+  assertMessageOrderLegal(full.events)
+})
+
+test('convertOmpJsonl: 无 session 头行 → skipped（跳过原因点名来源）', () => {
+  const out = convertOmpJsonl('not json\n', {})
+  assert.equal(out.meta, null)
+  assert.equal(out.skipped, 1)
+  assert.match(out.skipReason, /oh-my-pi/)
 })

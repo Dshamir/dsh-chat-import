@@ -6,6 +6,11 @@ All notable changes to `dsh-chat-import` are documented here, newest first.
 
 [中文](#cn-unreleased) | [English](#en-unreleased)
 
+<h3 id="cn-unreleased">新增功能</h3>
+
+- **新增 oh-my-pi（omp）对话导入源**：`import_chat({ format: "omp", path })` 与面板「导入会话」都能导入 omp 的会话（默认根 `~/.omp/agent/sessions`，一条会话一个 JSONL）。按 omp 的存储契约读：首行**定宽 256 字节的标题槽**作标题（旧文件没有槽时回退 `header.title`、再回退 `title_change`）、会话头取 id/时间/cwd、`id`/`parentId` 树只重建活动分支；`message` 的 camelCase 角色（`user` / `assistant` / `toolResult` / `bashExecution` / `pythonExecution` / `fileMention`）、`toolCall` 块（`arguments` 对象）、压缩条目（`firstKeptEntryId` 定保留窗口）按源自身 `convertToLlm` 的口径转换，压缩摘要默认导入为原生压缩检查点。`/clear` 的 `reset_boundary` 是纯标记、没有摘要载荷：与 Kimi「只有边界没有摘要」同口径，最后一次清空点之前的内容不进日志，结果里显式上报 `resetBoundaries: <N>`（不静默），`fullHistory: true` 保留全量——该开关进参数指纹。转换实现与 pi 共用同一引擎（`lib/convert/pi-family.mjs`），两个来源只保留各自的差异描述。
+- **工具结果新增两个降级计数**：`resetBoundaries`（omp 的 `/clear` 次数，见上）与 `droppedInjected`（无轮可挂的注入消息数：bash / python 执行活动）。后者此前在 pi 上叫 `droppedBash` 且**没有在输出 schema 里声明**，被宿主的输出校验丢掉、用户看不到——现已声明并随结果透出。
+
 <h3 id="cn-unreleased">体验优化</h3>
 
 - **`import_chat` 的常驻 schema 瘦身 59%，长文改由运行时 skill 按需加载**：schema 只留一次调用需要的东西——format 枚举、必填 `path`，以及「默认值会改变结果」的那几个参数各一行说明；29 个来源的 path 形状表、完整参数详解与重导规则下沉到 `docs/IMPORT-GUIDE.md`，并注册为宿主运行时 skill `dsh-chat-import-usage`（`import_chat` 的 description 点名它，模型在真要导入前加载一次）。口径是宿主真正发给模型的部分（name + description + parameters；`output.schema` 不上线、不计费），本机实测：`import_chat` 常驻 1633 → 663 tokens，全量 12 个工具 3720 → 2762 tokens；技能目录多出的一行约 46 tokens，故精简档净省约 0.9k/轮。设置页「精简档省多少」原先写的约 4.5k 有误，按同口径修正为约 2.1k；「关闭注入」的约 5k 修正为约 2.8k。**22 个参数一个没少**（全部保留声明，只是说明搬到了按需付费的地方）；`docs/USAGE*.md` 与中英两份 README 的文档表同步。
@@ -14,6 +19,11 @@ All notable changes to `dsh-chat-import` are documented here, newest first.
 <h3 id="cn-unreleased">其他变更</h3>
 
 - **发布流程移入 CI**：发布不再在本地执行 `npm publish` / `gh release`。推送 `v*` tag 后，`.github/workflows/release.yml` 校验 tag 与 `package.json` 版本一致、tag 提交在 `main` 上、CHANGELOG 版本节版式正确（`scripts/release-notes.mjs`），跑完全部门禁后以 trusted publishing + provenance 发布到 npm，并用同一版本节建 / 更新 GitHub Release；重跑会跳过 npm 上已有的版本。手动 `workflow_dispatch` 只校验、不发布。
+
+<h3 id="en-unreleased">New Features</h3>
+
+- **New import source: oh-my-pi (omp)**: `import_chat({ format: "omp", path })` and the Import Sessions panel both import omp sessions (default root `~/.omp/agent/sessions`, one JSONL per session). It follows omp's storage contract: the first line is a **fixed-width 256-byte title slot** used as the title (legacy files without it fall back to `header.title`, then `title_change`), the session header supplies id/time/cwd, and the `id`/`parentId` tree is rebuilt for the active branch only. The camelCase `message` roles (`user` / `assistant` / `toolResult` / `bashExecution` / `pythonExecution` / `fileMention`), `toolCall` blocks (`arguments` objects) and compaction entries (`firstKeptEntryId` marks the kept window) convert on the source's own `convertToLlm` terms, and compaction summaries become native DSH compaction checkpoints by default. `/clear`'s `reset_boundary` is a pure marker with no summary payload: by the same rule as Kimi's summary-less wire, content before the last clear point does not enter the log and the result reports `resetBoundaries: <N>` explicitly (never silently), while `fullHistory: true` keeps everything — that flag is part of the args fingerprint. Conversion shares one engine with pi (`lib/convert/pi-family.mjs`); each source keeps only its own differences.
+- **Two conversion counters added to tool results**: `resetBoundaries` (omp `/clear` count, above) and `droppedInjected` (injected messages with no step to attach to: bash / python execution activity). The latter was previously `droppedBash` on pi and **not declared in the output schema**, so the host's output validation dropped it and users never saw it — it is now declared and reported.
 
 <h3 id="en-unreleased">Improvements</h3>
 

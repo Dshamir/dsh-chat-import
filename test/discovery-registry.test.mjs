@@ -55,7 +55,7 @@ test('defaultRoots：env 注入（不读 process.env）——DSH_HOME / GROK_HOM
 test('FORMATS 顺序固定（工具 schema enum 与默认扫描 / 流式产出顺序）', () => {
   assert.deepEqual(FORMATS, [
     'claude', 'codex', 'cursor', 'gemini', 'antigravity', 'reasonix', 'opencode', 'mimocode',
-    'zcode', 'grokbuild', 'openclaw', 'pi', 'hermes', 'kimi', 'kilocode', 'qoder', 'chatgpt', 'workbuddy', 'qwen',
+    'zcode', 'grokbuild', 'openclaw', 'pi', 'omp', 'hermes', 'kimi', 'kilocode', 'qoder', 'chatgpt', 'workbuddy', 'qwen',
     'continue', 'cline', 'goose', 'dsh4', 'zed', 'crush', 'teleagent', 'trae', 'vibe', 'dsh',
   ])
 })
