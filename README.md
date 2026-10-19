@@ -4,7 +4,7 @@
 
 # DSH Chat Import
 
-**A session import plugin built on DeepSeek Harness: import conversation history from external agents with one click and continue chatting in DeepSeek Harness.**
+**A session import plugin built on DeepSeek Harness: import conversation history from other agents with one click, then keep talking in DeepSeek Harness.**
 
 > **All sessions, continued in DSH.**
 
@@ -73,20 +73,23 @@
 
 ## Install
 
-> Requires dsh ≥ 0.1.5-rc.1 — verified on the 0.1.x line and on 0.2.0-rc.1 (dsh-tools must satisfy `>=0.1.0-rc.6 <0.3.0`)
+> Requires dsh 0.1.5-rc.1 or newer. Verified on the 0.1.x line and on 0.2.0-rc.1; dsh-tools must satisfy `>=0.1.0-rc.6 <0.3.0`.
 
-1. Install via terminal
+1. Install from a terminal
 
 ```bash
 dsh plugin --profile web add dsh-chat-import                    # npm package
 ```
 
-2. Install via [Plugin Marketplace](https://github.com/dsh-market/dsh-market)
+2. Or install from the [Plugin Marketplace](https://github.com/dsh-market/dsh-market)
 
 ## Usage
 
-1. Import conversations via GUI
-  Open the import window from the "Import sessions" button at the bottom of the left sidebar (with the DSH Claude Style theme, that button sits in the account menu at the bottom left), select the conversations you want to import, and import with one click. When the file in hand comes from somewhere else (a web-app export, your own script, a tool this plugin does not list), use **Import from file** at the top of the same window: type a local path and press Enter, or press **Choose…** to pick files; when the path is a directory it asks whether to search subfolders. Confirm in the preview, then import (a failed detection lists every candidate parser's reason and points at the skill that converts the format).
+1. Import conversations from the GUI
+
+  Click the **Import sessions** button at the bottom of the left sidebar to open the import window. With the DSH Claude Style theme, that button lives in the account menu at the bottom left. Pick the conversations you want and import them in one click.
+
+  If the file came from somewhere else — a web-app export, a script you wrote, a tool this plugin does not list — use **Import from file** at the top of the same window. Type a local path and press Enter, or press **Choose…** to pick files. When the path is a directory, it asks whether to search subfolders. Check the preview, then import. If detection fails, it lists why each candidate parser gave up and points you at the skill that converts the format.
 
   <table>
     <tr>
@@ -95,9 +98,9 @@ dsh plugin --profile web add dsh-chat-import                    # npm package
     </tr>
   </table>
 
-  > These screenshots also use the DeepSeek palette of the author's other theme plugin, [DSH Claude Style](https://github.com/Nwflower/dsh-claude-style): it recreates the look and feel of Claude Code Desktop inside DSH, in a Claude palette and a DeepSeek one. If the default theme is not quite your taste, give it a try. The workspaces and sessions in the screenshots are sample data.
+  > These screenshots also use the DeepSeek palette from [DSH Claude Style](https://github.com/Nwflower/dsh-claude-style), another theme plugin by the same author. It recreates the look and feel of Claude Code Desktop inside DSH and ships two palettes, one for Claude and one for DeepSeek. If the default theme is not quite your taste, give it a try. The workspaces and sessions in the screenshots are sample data.
 
-2. Import via Agent tool calls
+2. Import through an agent's tool call
 
 ```
 # Example call formats
@@ -108,50 +111,46 @@ import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
 
 ## Configuration
 
-For TUI compatibility, plugin-provided tools are injected into context by default. You can configure the import tools in Settings to **not inject into context** or inject partially, which saves a significant amount of tokens.
+To accommodate TUI users, the tools this plugin provides start out injected into context. In Settings you can switch them to **not injected**, or to a partial injection, which saves a fair number of tokens.
 
-For full tool / command usage, see **[docs/USAGE.md](docs/USAGE.md)**.
+Full tool and command usage is in **[docs/USAGE.md](docs/USAGE.md)**.
 
-Third-party plugins can use the optional `chatImport` host service through
-`scanDiscover()`, `importPath()`, `importAll()`, and `resumeSummary()` to reuse the same
-discovery, import, batch-import, and handoff-summary pipelines as the built-in tools and
-commands. Single-session results include `sessionId`; callers should degrade gracefully
-when the service is absent.
+Third-party plugins can call `scanDiscover()`, `importPath()`, `importAll()`, and `resumeSummary()` on the optional `chatImport` host service. These reuse the same discovery, import, batch-import, and handoff-summary pipelines as the built-in tools and commands. A single-session import result includes `sessionId`. When the service is absent, callers should degrade gracefully.
 
 ## Features
 
 | Capability | Entry Point | Description |
 | --- | --- | --- |
-| Import | Sidebar panel "Import" tab | Import conversations from other agents, preserving reasoning, tool call results, and system prompts (optional) |
-| Import from file | Panel "Import from file" / `/import auto <path>` | Any local file or directory: three-level detection (explicit format > content marker > parser trial), preview first, an optional "search subfolders?" prompt for directories, and — when every parser fails — a ready-to-send agent task brief plus a registered `dsh-chat-import-convert` skill |
-| Retract Import | Sidebar panel "History" tab | View import history and delete sessions created by this plugin with one click |
-| Export | Context tool | Serialize DSH sessions back to external agents |
-| Ignore | Automatic + `/ignores` commands | Archive / delete / workspace-removal auto-registers the source so rescans skip it; `/ignore`, `/unignore` manage the table |
+| Import | Sidebar panel, "Import" tab | Import conversations from other agents, keeping reasoning, tool call results, and system prompts (optional) |
+| Import from file | Panel "Import from file" / `/import auto <path>` | Any local file or directory: three-level detection (explicit format > content marker > parser trial), preview first, an optional search-subfolders prompt for directories, and, when every parser fails, a ready-to-send agent task brief plus a registered `dsh-chat-import-convert` skill |
+| Retract Import | Sidebar panel, "History" tab | Review import history and delete sessions this plugin created |
+| Export | Context tool | Serialize DSH sessions back into other agents' formats |
+| Ignore | Automatic, plus `/ignores` | Archiving, deleting, or removing a workspace registers the source, so rescans skip it; `/ignore` and `/unignore` manage the table |
 
-Codex discovery prefers saved session titles (`thread_name` in `session_index.jsonl`), including renamed sessions. When no indexed title is available, it falls back to the first real user prompt using the same extraction as import; injected page context is excluded. The title index is streamed line by line, using the last valid title record for each session.
+Codex discovery prefers the session title saved in `session_index.jsonl` (`thread_name`), so a rename made in Codex still shows up. Only when no indexed title exists does it fall back to the first real user prompt, extracted the same way import does it, with injected page context excluded. The title index is streamed line by line, and the last valid title record wins for each session.
 
-Codex activity time uses the latest valid timestamp found in bounded transcript head and tail windows, combined across rollout pages. File modification time is a fallback when no transcript timestamp is available, so discovery can return activity times even when the host file service does not expose modification times. A timestamp inside a truncated record can be missed.
+For activity time, Codex discovery takes the latest valid timestamp found within bounded head and tail windows of the transcript and combines the results across rollout pages. File modification time is the fallback when the transcript carries no timestamp at all, so activity times still come back when the host file service does not expose modification times. A timestamp inside a truncated record can be missed.
 
-Claude Code fork sessions (the newer desktop session menu and `--fork-session`) are discovered and imported as well: a fork transcript opens with a verbatim copy of the parent's records and appends its own from the fork point, so the main-transcript test looks at **both ends** of the file (the file name's stem appearing at either end means the file owns that session) and the session identity is the **last** `sessionId` in the transcript — previously such files were classified as subagent auxiliary transcripts and skipped wholesale. The copied prefix (the parent's history) stays in the log: a fork's context does contain it, so the parent and the fork overlap by one stretch of history.
+Claude Code fork sessions (from the newer desktop session menu and from `--fork-session`) are discovered and imported too. A fork transcript opens with a verbatim copy of the parent's records and appends its own from the fork point, so the main-transcript test looks at **both ends** of the file: if the file name's stem appears at either end, the file owns that session. Session identity is the **last** `sessionId` in the transcript. Before this rule, such files were classified as subagent auxiliary transcripts and skipped wholesale. The copied prefix, which is the parent's history, stays in the log, because a fork's context really does contain it; the parent and the fork therefore overlap by one stretch of history.
 
-Hermes discovery scans `%LOCALAPPDATA%\hermes` and `~/.hermes` on Windows. If `LOCALAPPDATA` is unset, it uses `~/AppData/Local/hermes` for the Windows data directory. On macOS and Linux, it scans `~/.hermes`.
+On Windows, Hermes discovery scans `%LOCALAPPDATA%\hermes` and `~/.hermes`, falling back to `~/AppData/Local/hermes` when `LOCALAPPDATA` is unset. On macOS and Linux it scans `~/.hermes`.
 
 ## Docs
 
 | Document | Description |
 | --- | --- |
-| [Usage Reference](docs/USAGE.md) | Full parameters, examples, and edge cases for every tool / command |
+| [Usage Reference](docs/USAGE.md) | Complete parameters, examples, and edge cases for every tool and command |
 | [Interchange Protocol](docs/INTERCHANGE.md) | Interchange v1 protocol and bundle format |
 | [Conversion Guide](docs/INTERCHANGE-GUIDE.md) | Agent-facing skill instructions: convert any transcript into an importable interchange v1 document |
-| [Import Guide](docs/IMPORT-GUIDE.md) | Agent-facing skill instructions: format table, parameter reference and re-import rules for `import_chat` |
+| [Import Guide](docs/IMPORT-GUIDE.md) | Agent-facing skill instructions: the format table, parameter reference, and re-import rules for `import_chat` |
 | [Settings Migration](docs/SETTINGS-MIGRATION.md) | DSH 0.1.5 → 0.1.7 plugin settings-page migration (measured errors, compatibility recipe) |
 | [Changelog](CHANGELOG.md) | Version history |
-| [Roadmap](docs/ROADMAP.md) | Shipped / planned |
-| [Contributing](docs/CONTRIBUTING.md) | Development setup, commit rules, security & privacy |
+| [Roadmap](docs/ROADMAP.md) | Not yet done, planned, and explicitly out of scope |
+| [Contributing](docs/CONTRIBUTING.md) | Development setup, commit rules, security and privacy |
 
 ## Related Links
 
-> Only need to migrate **configuration** (skills, hooks, global settings, etc.) rather than conversation history? Recommended: [dsh-movein](https://github.com/sjh9714/dsh-movein)
+> Need to migrate **configuration** (skills, hooks, global settings) rather than conversation history? Try [dsh-movein](https://github.com/sjh9714/dsh-movein).
 
 ## Star History
 
