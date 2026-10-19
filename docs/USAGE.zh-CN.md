@@ -1,23 +1,22 @@
 # 使用详解
 
-> 从 README 迁出的完整工具/命令用法。快速上手见 README「使用」一节。
+> 从 README 迁出的完整工具与命令用法。想快速上手，看 README 的「使用」一节。
 
 ## 🛠 使用
 
-> **首次迁移分步流程**（与 [dsh-movein 首次迁移指南](https://github.com/sjh9714/dsh-movein/blob/main/docs/first-migration.zh.md) 的叙事对齐；其管配置，本插件管会话历史，可按需只用其一）：
-> ① **预览** - `scan_discover()` 或侧边栏面板查看可导入会话与导入状态徽标；或 `import_chat` 传 `preview: true` 零副作用试跑。
-> ② **导入** - 去掉 `preview` 正式导入，按来源 / 工作区核对逐会话 `status`（重复导入行为见下文「重导同一源」）。
-> ③ **体检与撤回** - `doctor()` 只读体检；`retract_import` 撤回 registry 记录，或面板「历史」页删除本插件创建的会话（需确认）。
+> **首次迁移分三步**（叙事与 [dsh-movein 的首次迁移指南](https://github.com/sjh9714/dsh-movein/blob/main/docs/first-migration.zh.md) 对齐：它管配置，本插件管会话历史，两者可以只用其一）：
+> ① **预览** —— 用 `scan_discover()` 或侧边栏面板查看可导入的会话与导入状态徽标；或者给 `import_chat` 传 `preview: true` 零副作用试跑一次。
+> ② **导入** —— 去掉 `preview` 正式导入，再按来源、按工作区核对每个会话的 `status`。重复导入会怎样，见下文「重导同一源」。
+> ③ **体检与撤回** —— `doctor()` 做只读体检；`retract_import` 撤回 registry 记录，或者在面板「历史」页删除本插件创建的会话（需要确认）。
 
-> **注意**：导入会即时落盘。当目标代次等于宿主原生代次（面板「导入到」的默认项）时，新会话会即时出现在会话列表，无需刷新；只有显式选择非原生代次（如在 V4 宿主上产出 V3 日志）时，该代次不是宿主当前的内存形状，需刷新页面后才可见。
+> **注意**：导入会即时落盘。如果目标代次就是宿主原生代次（面板「导入到」的默认项），新会话立刻出现在会话列表里，不用刷新。只有显式选了非原生代次时（比如在 V4 宿主上产出 V3 日志），这个代次不是宿主当前的内存形状，要刷新页面才看得到。
 
 ### 供第三方插件调用
 
-插件入口会注册可选的 `chatImport` Host Service。第三方插件可以调用
-`scanDiscover()`、`importPath()`、`importAll()` 和 `resumeSummary()`，复用与工具和命令
-相同的发现、解析、幂等、压缩、批量导入和交接摘要管线。`importPath()` 返回值与
-`import_chat` 相同，单会话结果包含 `sessionId`，批量结果包含 `results`；服务缺席时
-调用方应自行降级。
+插件入口会注册一个可选的 `chatImport` Host Service。第三方插件可以调用 `scanDiscover()`、
+`importPath()`、`importAll()` 和 `resumeSummary()`，复用与工具、命令相同的发现、解析、幂等、
+压缩、批量导入与交接摘要管线。`importPath()` 的返回值与 `import_chat` 相同：单会话结果带
+`sessionId`，批量结果带 `results`。服务缺席时，调用方要自己降级。
 
 ```js
 const service = ctx.get('chatImport')
@@ -35,12 +34,11 @@ const handoff = await service.resumeSummary({
 })
 ```
 
-`importAll()` 接受与 `scanDiscover()` 相同的筛选参数，并返回批量计数、逐会话结果和
-扫描警告。`resumeSummary()` 当前支持 Claude Code 和 Codex；它只生成可注入当前会话的
-交接摘要，不创建或打开新的 DSH 会话。打开导入后的会话由调用方使用返回的 `sessionId`
-完成。
+`importAll()` 接受与 `scanDiscover()` 相同的筛选参数，返回批量计数、逐会话结果和扫描警告。
+`resumeSummary()` 目前支持 Claude Code 与 Codex，它只生成一段可注入当前会话的交接摘要，
+不创建也不打开新的 DSH 会话。要打开导入后的会话，由调用方拿返回的 `sessionId` 去做。
 
-**导入——单个文件或目录。** 全部来源收敛为一个工具：`import_chat` 接受 `format` 与 `path`；目录递归扫描，每个文件 / 每段对话成为独立会话：
+**导入——单个文件或目录。** 全部来源都收敛成一个工具：`import_chat` 接受 `format` 与 `path`；目录会递归扫描，每个文件、每段对话各自成为独立会话：
 
 ```
 import_chat({ format: "claude", path: "C:\Users\<you>\.claude\projects\<slug>\<sessionId>.jsonl" })
@@ -54,36 +52,47 @@ import_chat({ format: "vibe", path: "C:\Users\<you>\.vibe\logs\session" })
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
 ```
 
-`format: "local-jsonl"` 接受任意本地 `.jsonl` 会话文件（或目录）：自动识别 `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic`，识别不准时可用 `parseFormat` 参数强制指定：
+`format: "local-jsonl"` 接受任意本地 `.jsonl` 会话文件或目录。它会自动识别 `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic`；识别不准时用 `parseFormat` 强制指定：
 
 ```
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
 import_chat({ format: "local-jsonl", path: "D:\downloads\unknown.jsonl", parseFormat: "claude" })
 ```
 
-`format: "chatgpt"` / `"opencode"` / `"kilocode"` / `"teleagent"` / `"trae"` / `"zcode"` / `"hermes"`（以及其余一库多会话来源）恒返回批量结果——一个文件 / 数据库包含全部会话，一次调用即可让每段对话成为独立会话。`format: "opencode"` 认 opencode 的**两个存储世代**并自动分派：V1（`session`/`message`/`part`）与 V2（opencode 2.x 的 `session_v2`/`session_message`）——两者共用同一个 `opencode.db`，V1 三表只是 V1→V2 迁移的来源、迁移后旧行仍在库里。只读命中的那一代，同一会话不会被导入两次；两代都没有的库直接报错，而不是显示成「没有会话」。`format: "teleagent"` 也接受 `users/` 多账户目录（逐账户枚举 `<账户>/teleagent.db`）或 `TeleAgent/` 数据根。`format: "trae"` 接受 Trae 的 `User` 根、`workspaceStorage`、`globalStorage` 或直接的 `state.vscdb` 路径。
+`format: "chatgpt"` / `"opencode"` / `"kilocode"` / `"teleagent"` / `"trae"` / `"zcode"` / `"hermes"` 以及其余一库多会话的来源，恒返回批量结果：一个文件或数据库里装着全部会话，一次调用就能让每段对话各自成为独立会话。
+
+`format: "opencode"` 认 opencode 的两个存储世代并自动分派：V1 是 `session` / `message` / `part`，V2 是 opencode 2.x 的 `session_v2` / `session_message`。两代共用同一个 `opencode.db`；V1 那三张表只是 V1→V2 迁移的来源，迁移之后旧行仍留在库里。插件只读命中的那一代，所以同一个会话不会被导入两次；两代都没有的库会直接报错，而不是显示成「没有会话」。
+
+`format: "teleagent"` 也接受 `users/` 多账户目录（逐个账户枚举 `<账户>/teleagent.db`），或 `TeleAgent/` 数据根。`format: "trae"` 接受 Trae 的 `User` 根、`workspaceStorage`、`globalStorage`，也可以直接给 `state.vscdb` 的路径。
 
 <details>
 <summary><b>导入参数与行为</b></summary>
 
-- `preview: true`（别名 `dryRun: true`）— **只读**运行：照常解析 / 读取 / 转换，但**零副作用**、不落盘。去掉该参数再调一次即正式导入。
-- **图片落成宿主附件** — 源转录里的图片不再只留 `[image]` 文本占位：转换层把图片字节放进中间结构，落盘前经宿主附件服务（`ctx.attachments`）存成不可变对象，会话日志里只留 `attachmentId` 引用（**base64 永不进日志**）。结果里 `images: <N>` 是落成附件的张数；`imagesDegraded: <M>` 是拿不到字节、仍以 `[image]` 占位导入的张数（宿主没有附件服务 / 类型不收（只收 PNG/JPEG/WebP/GIF）/ 单会话超过 500 张 / 源只给了引用如 Kimi 的 `blobref:` / **落点是 V3 代次**）。导出方向对称：`export_chat({ format: "claude" })` / `export_chat({ format: "codex" })` 会把引用读回 base64 写进目标格式，读不回时计入 `degradations` 的 `attachment-skipped`。`storeImages: false`（或环境变量 `DSH_IMPORT_STORE_IMAGES=0`）可只留占位、不写附件存储——图片是唯一会明显增大宿主持久存储的导入面。**注意：删除或撤回导入的会话不会回收这些图片字节**（宿主附件服务第一版没有删除/回收 API，图片对象会留在附件存储里）。
-- **耗时与 token 用量如实导入** — 源转录里的逐记录时间戳透传为会话事件时间：宿主统计据此折出真实的逐步模型耗时与工具耗时（模型耗时 = 步骤开始→助手消息，工具耗时 = 调用→结果；源没有逐记录时间的会话这些耗时为 0，不伪造）。provider 回报的 token 用量（Claude Code 的 `message.usage`、opencode / kilocode / mimocode 的 `message.data.tokens`、Reasonix v2 的行级 `usage`）写入 `assistant/message.data.usage`，宿主 token 统计可见；input/output 不是非负整数时整份丢弃，不污染统计。逐源支持情况见 [INTERCHANGE.md](INTERCHANGE.md) 能力矩阵的 `timestamps` / `usage` 两列。**首 token 延迟与输出速度任何源都导不了**：外部转录只记录完成态消息、没有流块时间戳（`stream` 恒为 `[]`）。导出 opencode 方向对称：事件带 usage 时 `tokens` 如实回填，没有才写 0 并计入 `usage-unknown`。
-- `force: true` — 即使已导入，也以新 id（`import-<sessionId>-<n>`）另存一份**完整副本**；旧会话绝不修改（重导语义的完整说明见下文「重导同一源」）。
-- `sessionId`（可选）— 覆盖目标 DSH 会话 id（默认 `import-<源sessionId>`）。
-- `import_chat({ format: 'chatgpt', branch: 'all' })` — 把对话 DAG 的**每条 root→leaf 分支**还原为独立会话（主线程仍是最后 child 链；分支会话带后缀源 id 与分支标记标题）。导出里的工具消息还原为真正的 `tool/call` + `tool/result`（结构化 JSON 参数、FIFO 配对），不再是纯文本。
-- **上下文压缩 → DSH 原生压缩事件** — 源码工具的上下文压缩（Claude Code 的 `compact_boundary` / `isCompactSummary` user 记录与旧格式 `summary` 记录、Codex 的 `compacted` 信封、Pi 的 `compaction` 条目、opencode 的 `compaction` part + 摘要消息（V2 为 `compaction` 行，检查点正文取 `summary` + `recent`）、Kimi 的 `context.apply_compaction`、Zed 的 `Compaction` 消息、Crush 的 `is_summary_message`、Continue 的 `conversationSummary`、zcode 的 `compaction` part + `compactBoundary`、Cline 的 `<id>.compaction.json` 压缩侧车、Grok Build 的 `compaction_meta` 交接摘要、Mistral Vibe 的 `context_boundary = "compaction"`）导入为 **DSH 原生压缩检查点**：日志照常保留**全量历史**（可回溯、可导出），同时在压缩边界发射一次原生 `compaction/start → compaction/summary → 检查点 user/message → compaction/end` 事务。模型的投影因此是「摘要检查点 + 压缩点之后的对话」，与源工具压缩后的真实上下文一致，压缩前的对话不再进模型上下文、也不会被预算裁剪吃掉（受遮蔽轮不计预算、不裁剪、不丢弃）。一次会话压缩多次就发多个检查点（链式遮蔽）。导入结果带 `compacted: true` 与 `compactions: <N>`（检查点数）。**重导 DSH 会话时也原样保留**源日志里的压缩事务（`import_chat({ format: 'dsh' | 'dsh4' })` 往返不丢检查点，V3/V4 的 `plugin:compact` 生产者标记双向归一）。压缩点之前没有可遮蔽内容（或源只有边界、没有摘要正文：Kimi 旧格式 wire）时发不出检查点——摘要退回既有形态（reasoning 块／可见文本）或按切窗口处理，并显式上报 `compactionSummaryMissing: true`，绝不虚构摘要。`fullHistory: true` 时不发检查点（模型看到全量历史）——该开关进参数指纹，换值须重导。oh-my-pi 的 `reset_boundary`（`/clear` 纯标记、没有摘要载荷）按 Kimi「只有边界没有摘要」同一口径处理：最后一次清空点之前的内容不进日志，结果里上报 `resetBoundaries: <N>`；`fullHistory: true` 保留全量。
-- `import_chat({ format: 'claude', compacted: true })` — 历史参数（兼容别名）：Claude 的压缩导入自本版本起**默认即为原生压缩检查点**，无需该参数。
-- `import_chat({ format: 'claude', includeToolUseResult: true })` — 额外并入 Claude 的**富结果 sidecar**（`toolUseResult`）：编辑补丁（`structuredPatch` / `bashEditDiff`）渲染成 diff 文本、交互问答渲染成问答对、其余标量（退出码、耗时、持久化输出路径等）渲染成一行紧凑 JSON，统一追加在该条工具结果之后。默认关（全量并入会明显增大日志）；该开关进参数指纹，换值须 `force` 重导。结果里 `toolUseResultsMerged` 是实际并入的条数。整份文件快照（`originalFile`）与可见正文里已有的内容不重复搬。
-- `import_chat({ format: 'codex', fullHistory: true })` — Codex rollout 的上下文压缩默认导入为原生压缩检查点（`compacted` 信封的交接摘要进检查点，跨压缩点那一轮一分为二：边界前 log-only、边界后可见）；`fullHistory: true` 导全量、不发检查点。Codex 子代理 rollout 不是独立会话，始终跳过并给出原因。
-- **Codex Desktop「导入外部 agent 会话」的 rollout：展平的工具调用还原为真正的工具消息** — Codex Desktop 的会话导入把外部 agent（实测为 Claude Code）的 transcript 写成 rollout 时，工具调用**没有** `function_call` 记录，而是展平成 assistant 正文里的文本信封（`[external_agent_tool_call: Bash]…[/external_agent_tool_call]`、`[external_agent_tool_result]…[/external_agent_tool_result]`，信封可与正文混排在同一个文本块里）。此前这类 rollout 导入后，工具调用全变成散文（python 命令里的 `# 注释` 行被 markdown 渲染成巨型标题、Edit 看不出是编辑）。现在转换层按段切分并还原成 `tool/call` + `tool/result`（结果按出现顺序 FIFO 配对；`: error` 标记还原为 `isError`）。**还原不虚构**：载荷键名与内容照抄信封——Codex 自己把 `file_path` 写成 `file`，并**丢掉** Edit / Write 的正文（只有文件路径），这部分已不在 rollout 里，插件不补。结果里 `externalAgent: { calls, results, orphanResults, malformed }` 上报还原数；`orphanResults`（找不到调用的结果，保留原文作正文）与 `malformed`（未闭合信封 / 认不出的载荷）是降级项。想要 Edit 的 `old_string` / `new_string`，要导**原始 Claude Code transcript**而不是这份派生 rollout。
-- `import_chat({ format: 'hermes', lineage: 'tail' })` — 只导**叶子链尾**（不是任何其它会话父会话的会话）；压缩分叉父会话跳过并标注。
-- `import_chat({ format: 'reasonix', path: '<sessions 目录>' })` — 目录导入默认使用 `lineageMode: 'canonical'`。只有现代 sidecar 把两个文件归入同一逻辑话题、无歧义的 `parent_id` 链明确证明祖先关系，而且祖先的完整语义消息序列是更长后代的真前缀时，才折叠恢复祖先。畸形输入、带 WAL 的检查点、完全相同副本、谱系链缺失及真实分叉叶全部保留。此模式不会替 Reasonix catalog 选择唯一活动叶；真实分支继续独立存在。`lineageMode: 'physical'` 可恢复每个 JSONL 一条会话。
-- **归档 / 删除 / 删工作区 → 自动忽略（不再重导）** — 归档会话写入忽略墓碑，取消归档自动解除。撤回 / 删除（retract / 清理）写入**永久**墓碑，重扫与 `/import-all` 一律跳过它。DSH 的归档仍保留会话与 id，但被忽略的源不再被当作「可重导」。删工作区会忽略**删除时**其名下已导入的会话，并登记工作区忽略——该工作区出现**新会话**或其中会话**取消归档**时自动恢复工作区（更早的墓碑保留）。查看与解除：`/ignores`、`/unignore <sessionId|sourcePath|all>`；`force: true` 可显式越权导入一次（不解除墓碑）。被墓碑拦下的导入单列为 `ignored` 结果：面板与 `import_chat` 点名墓碑原因（`archived` / `retracted` / `workspace-deleted`），不再并进「跳过」计数，面板另给「仍然导入」（一次性 `force`）的动作出口。
-- **重导同一源** — 绝不改写已导入历史，按「DSH 侧这条会话还是不是导入时写下的样子」分三种情形：
-  - 源文件未变 → 跳过（`already-imported`，不重读）；
-  - 源文件增长，且你**没有**在 DSH 里聊过这条会话 → 只把**新增轮次** append 进同一会话（`appended`）；
-  - 源文件增长，但你**已经**在 DSH 里聊过它 → 另建一份**新副本**（`reimported.reason: 'continued-in-dsh'`），不往你自己的对话里追加；两条会话都保留。截断的文件检测并上报后跳过（`sourceShrunk` / `storedShrunk`）；基线字段出现之前的旧记录保守另建一次副本（`reason: 'baseline-missing'`）。`force: true` 恒以新 id 另存完整副本。
+- `preview: true`（别名 `dryRun: true`）—— **只读**运行：照常解析、读取、转换，但**零副作用**、不落盘。去掉这个参数再调一次，就是正式导入。
+- **图片落成宿主附件** —— 源转录里的图片不再只留一个 `[image]` 文本占位。转换层把图片字节放进中间结构，落盘前经宿主附件服务（`ctx.attachments`）存成不可变对象，会话日志里只留 `attachmentId` 引用（**base64 永远不会进日志**）。结果里 `images: <N>` 是落成附件的张数；`imagesDegraded: <M>` 是拿不到字节、仍以 `[image]` 占位导入的张数，下列情况都会计入：宿主没有附件服务、类型不收（只收 PNG / JPEG / WebP / GIF）、单会话超过 500 张、源只给了引用（例如 Kimi 的 `blobref:`）、**落点是 V3 代次**。导出方向是对称的：`export_chat({ format: "claude" })` 与 `export_chat({ format: "codex" })` 会把引用读回 base64 写进目标格式，读不回时计入 `degradations` 的 `attachment-skipped`。`storeImages: false`（或环境变量 `DSH_IMPORT_STORE_IMAGES=0`）只留占位、不写附件存储——图片是唯一会明显撑大宿主持久存储的导入面。**注意：删除或撤回导入的会话不会回收这些图片字节**，宿主附件服务第一版没有删除、回收的 API，图片对象会一直留在附件存储里。
+- **耗时与 token 用量如实导入** —— 源转录里逐记录的时间戳会透传成会话事件时间，宿主据此折出真实的逐步模型耗时与工具耗时（模型耗时 = 步骤开始→助手消息，工具耗时 = 调用→结果）。源没有逐记录时间的会话，这些耗时就是 0，不伪造。provider 回报的 token 用量（Claude Code 的 `message.usage`、opencode / kilocode / mimocode 的 `message.data.tokens`、Reasonix v2 的行级 `usage`）写入 `assistant/message.data.usage`，宿主的 token 统计能看到；input / output 不是非负整数时整份丢弃，不污染统计。逐源的支持情况见 [INTERCHANGE.md](INTERCHANGE.md) 能力矩阵的 `timestamps` / `usage` 两列。**首 token 延迟与输出速度任何源都导不了**：外部转录只记录完成态的消息，没有流块时间戳（`stream` 恒为 `[]`）。导出 opencode 方向是对称的：事件带 usage 时 `tokens` 如实回填，没有才写 0 并计入 `usage-unknown`。
+- `force: true` —— 即使已经导入过，也以新 id（`import-<sessionId>-<n>`）另存一份**完整副本**，旧会话绝不修改。重导语义的完整说明见下文「重导同一源」。
+- `sessionId`（可选）—— 覆盖目标 DSH 会话 id，默认是 `import-<源 sessionId>`。
+- `import_chat({ format: 'chatgpt', branch: 'all' })` —— 把对话 DAG 的**每条 root→leaf 分支**还原成独立会话：主线程仍是最后一条 child 链，分支会话带后缀源 id 和标记分支的标题。导出里的工具消息会还原成真正的 `tool/call` + `tool/result`（结构化 JSON 参数、FIFO 配对），不再是纯文本。
+- **上下文压缩 → DSH 原生压缩事件** —— 源工具的上下文压缩会被导入为 **DSH 原生压缩检查点**。涉及的源包括：Claude Code 的 `compact_boundary` / `isCompactSummary` user 记录与旧格式 `summary` 记录，Codex 的 `compacted` 信封，Pi 的 `compaction` 条目，opencode 的 `compaction` part 加摘要消息（V2 是 `compaction` 行，检查点正文取 `summary` + `recent`），Kimi 的 `context.apply_compaction`，Zed 的 `Compaction` 消息，Crush 的 `is_summary_message`，Continue 的 `conversationSummary`，zcode 的 `compaction` part 加 `compactBoundary`，Cline 的 `<id>.compaction.json` 压缩侧车，Grok Build 的 `compaction_meta` 交接摘要，以及 Mistral Vibe 的 `context_boundary = "compaction"`。
+  日志照常保留**全量历史**，可以回溯、可以导出；同时每到一个压缩边界，就发射一次原生事务 `compaction/start → compaction/summary → 检查点 user/message → compaction/end`。模型看到的因此是「摘要检查点 + 压缩点之后的对话」，与源工具压缩后的真实上下文一致；压缩前的对话不再进模型上下文，也不会被预算裁剪吃掉（受遮蔽的轮不计预算、不裁剪、不丢弃）。一次会话压缩几次，就发几个检查点，链式遮蔽。导入结果带 `compacted: true` 和 `compactions: <N>`（检查点数）。
+  **重导 DSH 会话时也会原样保留**源日志里的压缩事务：`import_chat({ format: 'dsh' | 'dsh4' })` 往返不丢检查点，V3/V4 的 `plugin:compact` 生产者标记双向归一。
+  压缩点之前没有可遮蔽的内容，或者源只有边界、没有摘要正文（Kimi 旧格式 wire）时，检查点发不出来。这时摘要退回原有的形态（reasoning 块或可见文本），或者按切窗口处理，并显式上报 `compactionSummaryMissing: true`，绝不虚构摘要。
+  `fullHistory: true` 时不发检查点，模型看到的是全量历史。这个开关进参数指纹，换值要重导。oh-my-pi 的 `reset_boundary`（`/clear` 留下的纯标记，没有摘要载荷）按 Kimi「只有边界、没有摘要」的同一口径处理：最后一次清空点之前的内容不进日志，结果里上报 `resetBoundaries: <N>`；`fullHistory: true` 时保留全量。
+- `import_chat({ format: 'claude', compacted: true })` —— 历史参数，作为兼容别名保留。Claude 的压缩导入自本版本起**默认就是原生压缩检查点**，不需要传这个参数。
+- `import_chat({ format: 'claude', includeToolUseResult: true })` —— 额外并入 Claude 的**富结果 sidecar**（`toolUseResult`）：编辑补丁（`structuredPatch` / `bashEditDiff`）渲染成 diff 文本，交互问答渲染成问答对，其余标量（退出码、耗时、持久化输出路径等）渲染成一行紧凑 JSON，统一追加在该条工具结果之后。默认关闭，因为全量并入会明显增大日志。这个开关进参数指纹，换值要用 `force` 重导。结果里的 `toolUseResultsMerged` 是实际并入的条数。整份文件快照（`originalFile`）以及可见正文里已有的内容，不重复搬。
+- `import_chat({ format: 'codex', fullHistory: true })` —— Codex rollout 的上下文压缩默认导入为原生压缩检查点：`compacted` 信封里的交接摘要进检查点，跨压缩点的那一轮一分为二，边界前 log-only、边界后可见。`fullHistory: true` 导全量、不发检查点。Codex 子代理的 rollout 不是独立会话，始终跳过，并给出原因。
+- **Codex Desktop「导入外部 agent 会话」的 rollout：展平的工具调用还原为真正的工具消息** —— Codex Desktop 做会话导入时，把外部 agent（实测是 Claude Code）的 transcript 写进 rollout，但工具调用**没有** `function_call` 记录，而是展平成 assistant 正文里的文本信封：`[external_agent_tool_call: Bash]…[/external_agent_tool_call]`、`[external_agent_tool_result]…[/external_agent_tool_result]`，信封还可以与正文混排在同一个文本块里。以前导入这类 rollout，工具调用全变成散文（python 命令里的 `# 注释` 行会被 markdown 渲染成巨型标题，Edit 也看不出是编辑）。现在转换层按段切分，还原成 `tool/call` + `tool/result`：结果按出现顺序 FIFO 配对，`: error` 标记还原为 `isError`。
+  **还原不虚构**：载荷的键名与内容照抄信封。Codex 自己把 `file_path` 写成 `file`，并且**丢掉**了 Edit / Write 的正文（只留文件路径）；这部分在 rollout 里已经不存在，插件不补。结果里的 `externalAgent: { calls, results, orphanResults, malformed }` 上报还原情况。其中 `orphanResults`（找不到调用的结果，原样保留为正文）和 `malformed`（未闭合的信封、认不出的载荷）是降级项。想要 Edit 的 `old_string` / `new_string`，请导**原始的 Claude Code transcript**，而不是这份派生出来的 rollout。
+- `import_chat({ format: 'hermes', lineage: 'tail' })` —— 只导**叶子链尾**，也就是不作为任何其他会话父会话的那些会话；压缩分叉出来的父会话会跳过并标注。
+- `import_chat({ format: 'reasonix', path: '<sessions 目录>' })` —— 目录导入默认用 `lineageMode: 'canonical'`。只有同时满足下面几条，才会折叠恢复出来的祖先：现代 sidecar 把两个文件归入同一个逻辑话题，无歧义的 `parent_id` 链明确证明了祖先关系，并且祖先的完整语义消息序列确实是更长后代的真前缀。畸形输入、带 WAL 的检查点、完全相同的副本、谱系链缺失以及真实分叉的叶，全都保留。这个模式不会替 Reasonix catalog 挑出唯一的活动叶，真实的分支继续独立存在。用 `lineageMode: 'physical'` 可以恢复成每个 JSONL 一条会话。
+- **归档 / 删除 / 删除工作区 → 自动忽略（不再重导）** —— 归档会话时会写入忽略墓碑，取消归档自动解除。撤回、删除（retract / 清理）写入的是**永久**墓碑，重扫与 `/import-all` 一律跳过它。DSH 的归档仍保留会话与 id，但被忽略的源不再被当作「可重导」。删除工作区会忽略**删除那一刻**它名下已导入的会话，并登记工作区忽略；该工作区里出现**新会话**、或其中会话**取消归档**时，工作区会自动恢复（更早的墓碑照旧保留）。查看与解除用 `/ignores`、`/unignore <sessionId|sourcePath|all>`；`force: true` 可以越权导入一次，但不解除墓碑。被墓碑拦下的导入会单列为 `ignored` 结果：面板与 `import_chat` 都会点名墓碑原因（`archived` / `retracted` / `workspace-deleted`），不会并进「跳过」计数；面板另外给了一个「仍然导入」的动作出口（一次性 `force`）。
+- **重导同一源** —— 绝不改写已导入的历史，判断依据是「DSH 侧这条会话还是不是导入时写下的样子」，分三种情形：
+  - 源文件没变 → 跳过（`already-imported`），不重读；
+  - 源文件增长了，而且你**没有**在 DSH 里聊过这条会话 → 只把**新增的轮次** append 进同一个会话（`appended`）；
+  - 源文件增长了，但你**已经**在 DSH 里聊过它 → 另建一份**新副本**（`reimported.reason: 'continued-in-dsh'`），不往你自己的对话里追加，两条会话都保留。
+  
+  被截断的文件会被检测出来，上报后跳过（`sourceShrunk` / `storedShrunk`）；出现在基线字段之前的旧记录无法判断，保守地另建一次副本（`reason: 'baseline-missing'`）。`force: true` 恒以新 id 另存完整副本。
 
 ```
 import_chat({ format: "claude", path: "C:\Users\<you>\.claude\projects\<slug>\<sessionId>.jsonl" })
@@ -93,15 +102,17 @@ import_chat({ format: "claude", path: "C:\Users\<you>\.claude\projects\<slug>\<s
 
 </details>
 
-每次导入结果都会上报 `status` 与任何异常——畸形行、疑似敏感信息、逐源丢弃——绝不静默吞掉。
+每次导入都会在结果里上报 `status` 和任何异常——畸形行、疑似敏感信息、逐源丢弃——绝不静默吞掉。
 
-Hermes 默认扫描 Windows 的 `%LOCALAPPDATA%\hermes` 与 `~/.hermes`（`LOCALAPPDATA` 未设置时回退到 `~/AppData/Local/hermes`），macOS 与 Linux 使用 `~/.hermes`。每个根目录优先读取 `state.db`，数据库不可用时回退 JSONL；其他位置可显式传入 `path`。
+Hermes 在 Windows 上默认扫描 `%LOCALAPPDATA%\hermes` 与 `~/.hermes`（`LOCALAPPDATA` 没有设置时回退到 `~/AppData/Local/hermes`），macOS 与 Linux 用 `~/.hermes`。每个根都优先读 `state.db`，数据库不可用时回退 JSONL；放在别处的话可以显式传 `path`。
 
-### import_agents — 把 pi/opencode/Claude/Codex 的 agent、prompt、skill、指令与配置参考转换为 DSH skills
+### import_agents —— 把 pi / opencode / Claude / Codex 的 agent、prompt、skill、指令与配置参考转成 DSH skills
 
-`import_agents` 把 **pi**（`~/.pi/agent/{agents,prompts}/*.md`）、**opencode**（`~/.config/opencode/{agents,skill}/*.md`）、**Claude**（`~/.claude/memory/<group>/*.md`、`~/.claude/skills/<skill>/SKILL.md`，或经 `claudeProjectRoot` 显式指定的项目根 `CLAUDE.md`）与 **Codex**（`~/.codex/skills/<skill>/SKILL.md`、`~/.codex/instructions.md`、`~/.codex/AGENTS.md`、`~/.codex/config.toml`）的自定义 agent、mode prompt、skill、指令与配置参考转换为**持久化 DSH skill 资产**——`$DSH_AGENTS_HOME/skills/<name>/SKILL.md`（`$DSH_AGENTS_HOME` 缺省 `~/.agents`），成为任意会话里可发现的技能。这与运行时只读的 Claude 桥（`context-bridge`，默认关）互补：后者把 Claude 的 memory/CLAUDE.md/skills 临时注入；本工具把 pi/opencode/Claude/Codex 资产持久落盘。
+`import_agents` 把下面这些自定义资产转成**持久化的 DSH skill 资产**：**pi**（`~/.pi/agent/{agents,prompts}/*.md`）、**opencode**（`~/.config/opencode/{agents,skill}/*.md`）、**Claude**（`~/.claude/memory/<group>/*.md`、`~/.claude/skills/<skill>/SKILL.md`，或者经 `claudeProjectRoot` 显式指定的项目根 `CLAUDE.md`）、**Codex**（`~/.codex/skills/<skill>/SKILL.md`、`~/.codex/instructions.md`、`~/.codex/AGENTS.md`、`~/.codex/config.toml`）。转换结果写到 `$DSH_AGENTS_HOME/skills/<name>/SKILL.md`（`$DSH_AGENTS_HOME` 默认是 `~/.agents`），于是任何会话里都能发现这些技能。
 
-默认 **dry-run**（只返回 write/complete/skip 规划清单，零副作用）；传 `apply: true` 才真正写盘：
+它和运行时只读的 Claude 桥（`context-bridge`，默认关）互补：桥把 Claude 的 memory / CLAUDE.md / skills 临时注入，本工具则把 pi / opencode / Claude / Codex 的资产持久落盘。
+
+默认是 **dry-run**：只返回 write / complete / skip 的规划清单，零副作用。传 `apply: true` 才真正写盘：
 
 ```
 import_agents()                    // dry-run：仅规划
@@ -109,35 +120,41 @@ import_agents({ apply: true })     // 写入 $DSH_AGENTS_HOME/skills/<name>/SKIL
 import_agents({ codexRoot: "~/.codex", apply: true })  // 显式包含 Codex 资产
 ```
 
-语义：跨源同名冲突加 `-<source>` 后缀消歧（如 `-pi` / `-opencode` / `-codex`）；内容相同幂等跳过；已带 `kind: dsh`/`kind: skill` frontmatter 的源不重复导入；bundle 目录缺 `SKILL.md` 时原地补全（保留既有 `scripts/` 等）；嵌套 YAML（如 `permission:`）原样保留。
+几条语义：跨源同名冲突会加 `-<source>` 后缀消歧（例如 `-pi` / `-opencode` / `-codex`）；内容相同的幂等跳过；已经带 `kind: dsh` 或 `kind: skill` frontmatter 的源不重复导入；bundle 目录缺 `SKILL.md` 时就地补全，同时保留原有的 `scripts/` 等目录；嵌套 YAML（例如 `permission:`）原样保留。
 
-定位说明：`import_agents` 只做轻量资产落盘，不覆盖 hooks、权限规则或 settings 等完整配置迁移--后者见 [dsh-movein](https://github.com/sjh9714/dsh-movein)（与本插件分工互补，组合流程未联合验证）。
+另外说明一下定位：`import_agents` 只做轻量资产落盘，不覆盖 hooks、权限规则、settings 这类完整配置迁移，那些交给 [dsh-movein](https://github.com/sjh9714/dsh-movein)。两者分工互补，但组合流程没有联合验证过。
 
-### scan_discover — 只读会话发现
+### scan_discover —— 只读会话发现
 
-`scan_discover` 扫描全部已支持格式的已知数据根（包括 Cline 新版 sessions 与 VS Code globalStorage 旧版任务，以及 Windows 上的 Reasonix 桌面版与 Claude-3p 根），返回结构化会话索引（标题、项目、cwd、路径、导入状态，源目录为 git 仓库时附分支/dirty），供批导入前预览。扫描失败的目标（无权限 / 库损坏 / 读取器异常）不再让整份列表落空：结果带 `warnings: [{ format, target, error }]` 逐个点名失败目标（空数组 = 全部扫描成功），面板在会话列表上方同样点名。VS Code 使用非标准 globalStorage 路径时可设置 `CLINE_LEGACY_GLOBAL_STORAGE_DIR`；Grok Build 的默认根 `~/.grok` 可用 `GROK_HOME` 覆盖。零副作用：
+`scan_discover` 会扫描全部已支持格式的已知数据根（包括 Cline 新版 sessions、VS Code globalStorage 里的旧版任务，以及 Windows 上的 Reasonix 桌面版与 Claude-3p 根），返回结构化的会话索引——标题、项目、cwd、路径、导入状态，源目录是 git 仓库时还附分支与 dirty 状态——供批量导入前预览。
 
-DSH 来源（`dsh` / `dsh4`）里压缩后超过 256KB 的会话日志不做整份解压：这类条目的标题、工作区与创建时间改由宿主的会话 header 与持久投影缓存补齐（与宿主侧栏显示的是同一个标题）。来源日志里已经读到的标题（含改名）优先；宿主未挂投影缓存或该会话没有缓存行时，条目照常列出、标题留空。
+扫描失败的目标（无权限、库损坏、读取器异常）不会让整份列表落空：结果里的 `warnings: [{ format, target, error }]` 逐个点名失败目标，空数组表示全部扫描成功；面板也会在会话列表上方同样点名。VS Code 用非标准 globalStorage 路径时可以设置 `CLINE_LEGACY_GLOBAL_STORAGE_DIR`；Grok Build 的默认根 `~/.grok` 可以用 `GROK_HOME` 覆盖。整个过程零副作用：
+
+DSH 来源（`dsh` / `dsh4`）里压缩后超过 256KB 的会话日志不会被整份解压。这类条目的标题、工作区与创建时间改由宿主的会话 header 与持久投影缓存补齐，和宿主侧栏显示的是同一个标题。来源日志里已经读到的标题（包括改名）优先；宿主没挂投影缓存，或者该会话没有缓存行时，条目照常列出，只是标题留空。
 
 ```
 scan_discover()
 scan_discover({ path: "~/.codex/sessions", format: "codex", query: "import" })
 ```
 
-### list_imported_sessions & retract_import — 识别与撤回
+### list_imported_sessions & retract_import —— 识别与撤回
 
-`list_imported_sessions()` 枚举本插件已导入的全部 DSH 会话；`retract_import({ sessionId })`（或 `sourcePath`）移除其 registry 记录并返回手动删除引导。**只识别 + 引导手动删，绝不执行任何删除**：
+`list_imported_sessions()` 列出本插件已导入的全部 DSH 会话。`retract_import({ sessionId })`（也可以传 `sourcePath`）移除它的 registry 记录，并返回手动删除的引导。**它只做识别、只引导你手动删，绝不执行任何删除**：
 
 ```
 list_imported_sessions()
 retract_import({ sessionId: "import-019f5f27-…" })
 ```
 
-> **撤回后的幽灵会话** — DSH 宿主没有 delete/forget 面：`retract_import` 并手动删除工件后，会话 id 仍可能占据宿主内存索引（会话列表里可见、直到重启 dsh 才消失），同源重导此前会报 `session "…" already exists in this backend`。现已自愈：重导检测到陈旧条目（list 仍暴露但日志不可读，或 create 拒绝该 id）时**自动另铸后缀新 id**（`import-<id>-1`）完整重导并报告 `staleGhost: { previous, current }`，不再失败；`retract_import` 的 `manualDelete` 引导也注明幽灵会话需重启 dsh 才彻底消失。
+> **撤回后留下的幽灵会话** —— DSH 宿主没有 delete / forget 接口。`retract_import` 之后你再手动删掉工件，会话 id 仍可能占着宿主的内存索引：列表里还看得见，要重启 dsh 才消失。同源重导以前会因此报 `session "…" already exists in this backend`。现在这种情况能自愈：重导时检测到陈旧条目（list 仍暴露、但日志读不出来，或者 create 拒绝了这个 id），插件会**自动另铸一个带后缀的新 id**（`import-<id>-1`）完整重导，并报告 `staleGhost: { previous, current }`，不再失败。`retract_import` 的 `manualDelete` 引导里也写明了：幽灵会话要重启 dsh 才会彻底消失。
 
-### export_chat — DSH → Claude / Codex / Kimi / opencode（矩阵导出）
+### export_chat —— DSH → Claude / Codex / Kimi / opencode（矩阵导出）
 
-`export_chat({ format: "claude", sessionId })` 把现有 DSH 会话（导入的或原生的）序列化为 Claude Code JSONL transcript，可直接 `--resume`。文件写到 `<outputDir>/<slug>/<uuid>.jsonl`（默认 `~/.claude/projects`），文件名是全新 UUID v4——绝不覆盖已有文件。`format: "codex"` / `format: "kimi"` 分别写 Codex rollout JSONL 与 Kimi `wire.jsonl`；`format: "opencode"` 写 `opencode import <文件>` 能吃下的 JSON 文档（会话 info + messages + parts，id 前缀 `ses` / `msg` / `prt` 是 opencode 解码器的硬要求）。后三者默认写 `~/.dsh/exports`，或用 `path: …` 指定目标——补齐 DSH↔Claude↔Codex↔Kimi↔opencode 矩阵（导入边已存在）。每次导出在 `degradations` 字段里逐条列出**有损项**（孤儿工具结果 / 注入跳过 / 附件跳过，opencode 另有 `usage-unknown`：它要求 `cost`/`tokens` 而 DSH 会话日志没有用量计数，故写 0 并上报）——绝不静默丢弃：
+`export_chat({ format: "claude", sessionId })` 把一条现有的 DSH 会话（导入的或原生的）序列化成 Claude Code JSONL transcript，可以直接 `--resume`。文件写到 `<outputDir>/<slug>/<uuid>.jsonl`（默认 `~/.claude/projects`），文件名是全新的 UUID v4，绝不覆盖已有文件。
+
+`format: "codex"` 与 `format: "kimi"` 分别写 Codex rollout JSONL 和 Kimi `wire.jsonl`。`format: "opencode"` 写一份 `opencode import <文件>` 能吃下的 JSON 文档（会话 info + messages + parts；id 前缀 `ses` / `msg` / `prt` 是 opencode 解码器的硬要求）。后三者默认写到 `~/.dsh/exports`，也可以用 `path: …` 指定目标。到这里，DSH↔Claude↔Codex↔Kimi↔opencode 的矩阵就补齐了（导入方向本来就有）。
+
+每次导出都会在 `degradations` 字段里逐条列出**有损项**：孤儿工具结果、注入跳过、附件跳过；opencode 还多一项 `usage-unknown`——它要求 `cost` / `tokens`，而 DSH 会话日志不记录用量，所以只能写 0 并上报。绝不静默丢弃：
 
 ```
 export_chat({ format: "claude", sessionId: "import-019f5f27-…" })
@@ -146,9 +163,11 @@ export_chat({ format: "kimi", sessionId: "…", outputDir: "D:\backup\kimi" })
 export_chat({ format: "opencode", sessionId: "…" })   // → ~/.dsh/exports/<id>.opencode.json，随后：opencode import <文件>
 ```
 
-### export_bundle / restore_bundle — 便携 interchange bundle
+### export_bundle / restore_bundle —— 便携 interchange bundle
 
-`export_bundle({ sessionId })` 写出 **`.dshbundle.json`**——事件级无损的 interchange bundle（协议见 [docs/INTERCHANGE.md](INTERCHANGE.md)），带双重 SHA-256 指纹（会话级 + 文件级）与机器无关的落点信息（`originalCwd` + `landingHint`）。`restore_bundle({ path })` 先校验指纹（损坏大声报告、绝不静默还原），再经同一幂等状态机导入——重复还原跳过、`force: true` 另存副本、目录模式逐个还原 `.dshbundle.json`：
+`export_bundle({ sessionId })` 写出一份 **`.dshbundle.json`**，即事件级无损的 interchange bundle（协议见 [INTERCHANGE.md](INTERCHANGE.md)）。它带双重 SHA-256 指纹（会话级与文件级），以及和机器无关的落点信息（`originalCwd` + `landingHint`）。
+
+`restore_bundle({ path })` 先校验指纹（文件损坏就大声报告，绝不静默还原），再走同一套幂等状态机导入：重复还原会跳过，`force: true` 另存副本，目录模式下逐个还原里面的 `.dshbundle.json`：
 
 ```
 export_bundle({ sessionId: "import-019f5f27-…" })                    // → ~/.dsh/exports/<id>.dshbundle.json
@@ -156,33 +175,33 @@ restore_bundle({ path: "D:\backup\sess.dshbundle.json" })            // A 机导
 restore_bundle({ path: "D:\backup\bundle-dir", preview: true })      // dry-run
 ```
 
-**跨机器：** A 机导出 → 拷贝 bundle → B 机还原。原 `cwd` 在 B 机不可达时，会话回退归到 bundle 文件所在目录，结果报告 `cwdAvailable: false` / `groupedTo` / `restoreNote`——绝不静默。
+**跨机器**：在 A 机导出，把 bundle 拷到 B 机还原。如果原来的 `cwd` 在 B 机上不存在，会话会退回到 bundle 文件所在的目录，结果里报告 `cwdAvailable: false` / `groupedTo` / `restoreNote`，不静默处理。
 
-### verify_session — 只读结构审计
+### verify_session —— 只读结构审计
 
-`verify_session({ sessionId })` 对任意 DSH 会话做只读结构校验：seq 连续、事件类型白名单、surface 事件带 `surfaceOp`、`sourceEventSeqs` 指向真实 `tool/call`、surface 事件不早于首个 `step/start`、turn/step 平衡、工具调用↔结果配对。问题逐条定位（kind + seq + message），并按 kind 给出 `repairHints`（`force` 重导 / 闭合半开轮 / 源转录中途开始的边界说明）：
+`verify_session({ sessionId })` 对任意 DSH 会话做一次只读的结构校验：seq 是否连续、事件类型是否在白名单内、surface 事件是否带 `surfaceOp`、`sourceEventSeqs` 是否指向真实的 `tool/call`、surface 事件是否早于首个 `step/start`、turn 与 step 是否平衡、工具调用与结果是否配对。发现的问题逐条定位（kind + seq + message），并按 kind 给出 `repairHints`（`force` 重导、闭合半开轮，或者说明源转录本身从中途开始）：
 
 ```
 verify_session({ sessionId: "import-019f5f27-…" })
 ```
 
-> 环境变更提示注入在首个 `step/start` 之后（`turn/start → step/start → 提示 → 该轮提问`）。它仍是模型看到的第一条消息，但日志里没有任何 surface 事件早于第一个 step——旧格式（v0–v2）日志若把提示写在首个 step 之前，宿主做 v2→v3 格式迁移时会 fail-closed 拒载（`surface before first step cannot acquire a system head`），会话打不开、导出/校验也读不到。`verify_session` 会以 `surface-before-first-step` 点名这类存量会话，用 `force: true` 重导（或面板「刷新已导入」）即可按新注入位重写。
+> 环境变更提示注入在首个 `step/start` 之后（`turn/start → step/start → 提示 → 该轮提问`）。它仍是模型看到的第一条消息，但日志里不能有任何 surface 事件早于第一个 step。旧格式（v0–v2）的日志如果把提示写在首个 step 之前，宿主做 v2→v3 格式迁移时会 fail-closed 拒载整份日志（`surface before first step cannot acquire a system head`）：会话打不开，导出、校验也读不到。`verify_session` 会用 `surface-before-first-step` 点名这类存量会话，用 `force: true` 重导（或面板「刷新已导入」）即可按新的注入位置重写。
 >
-> 导入会话的日志以一条**空 `system/message` head** 开头（第一个 `step/start` 之后、任何其它 surface 事件之前）。宿主的 v3→v4 迁移要求 surface 的第一个事件是 `system/message`（protected head），否则宿主续聊写自己的系统提示词时整份日志被拒载（`system/message requires a protected first surface head`），由它 seed 出来的续聊会话同样打不开。`verify_session` 会以 `system-head-missing` 点名这类存量会话（0.20.0 之前导入的），用 `force: true` 重导即可拿到带 head 的新会话——head 必须是 surface 首事件，旧日志无法原地补写。
+> 导入会话的日志以一条**空的 `system/message` head** 开头，位置在第一个 `step/start` 之后、任何其他 surface 事件之前。宿主的 v3→v4 迁移要求 surface 的第一个事件是 `system/message`（protected head）。否则，宿主续聊、要写自己的系统提示词时，整份日志会被拒载（`system/message requires a protected first surface head`），由它 seed 出来的续聊会话同样打不开。`verify_session` 会用 `system-head-missing` 点名这类存量会话（0.20.0 之前导入的），用 `force: true` 重导就能拿到带 head 的新会话。head 必须是 surface 的首事件，旧日志没法原地补写。
 
-### doctor — 只读迁移健康检查
+### doctor —— 只读迁移健康检查
 
-`doctor()` 做一次只读迁移后体检：imports registry 是否可读、每个已导入会话是否仍存在于 `sessionPersistence`、`import_agents` 的 skills 是否落盘、`workspaceRegistry` 是否可用，以及宿主会话目录里是否残留着宿主已读不出的 `import-*` 目录（它们仍占用会话 id，重导只能另建带后缀的副本）。绝不写文件、不导入、不同步、不删除：
+`doctor()` 做一次只读的迁移后体检，看这几件事：imports registry 是否可读；每个已导入会话是否仍存在于 `sessionPersistence`；`import_agents` 写出的 skills 是否真的落盘；`workspaceRegistry` 是否可用；宿主会话目录里是否残留着宿主已经读不出的 `import-*` 目录（它们仍占着会话 id，重导只能另建带后缀的副本）。它不写文件，不导入，不同步，也不删除：
 
 ```
 doctor()
 ```
 
-返回 `{ ok, checks, issues, totals }`——适合大批量导入后，或 DSH 数据跨机器搬运前后使用。
+返回 `{ ok, checks, issues, totals }`。适合在批量导入之后，或者 DSH 数据跨机器搬运前后跑一次。
 
-### 独立 CLI — export-md / doctor
+### 独立 CLI —— export-md / doctor
 
-npm 包还附带一个小的独立 CLI（无需启动 DSH）：
+npm 包里还附带一个小 CLI，不需要启动 DSH：
 
 ```
 npx dsh-chat-import export-md ~/.dsh/sessions/<workspace>/<session>/session.jsonl
@@ -190,11 +209,11 @@ npx dsh-chat-import export-md <会话目录> --out session.md
 npx dsh-chat-import doctor
 ```
 
-`export-md` 把 DSH 会话日志渲染为可读 Markdown（会话头、标题、user/assistant 文本、thinking、工具调用与结果）。会话根随宿主的 `DSH_HOME` 走（桌面端为 `%APPDATA%\dsh-desktop\harness`；未设置时为 `~/.dsh`，如独立 CLI 场景）。`doctor` 读取 `$DSH_HOME/dsh-chat-import/imports.json` 与本地 `sessions` 树，做轻量健康汇总。
+`export-md` 把 DSH 会话日志渲染成可读的 Markdown，包括会话头、标题、user / assistant 文本、thinking、工具调用与结果。会话根跟随宿主的 `DSH_HOME`：桌面端是 `%APPDATA%\dsh-desktop\harness`，没有设置时用 `~/.dsh`（独立 CLI 就是这种情况）。`doctor` 读取 `$DSH_HOME/dsh-chat-import/imports.json` 与本地的 `sessions` 树，做一份轻量的健康汇总。
 
-### import_mcp — MCP 镜像计划
+### import_mcp —— MCP 镜像计划
 
-`import_mcp` 从 **Claude**（`~/.claude.json` / `.mcp.json`）与 **Codex**（`~/.codex/config.toml`）读取 MCP server，并生成可人工审阅的 **DSH MCP client YAML 片段**。默认 dry-run；`apply: true` 把片段写到 `$DSH_HOME/dsh-chat-import/mcp-mirror.cordis.yml`（或 `outPath`）——绝不自动改 profile：
+`import_mcp` 从 **Claude**（`~/.claude.json` / `.mcp.json`）和 **Codex**（`~/.codex/config.toml`）读取 MCP server，生成一份可以人工审阅的 **DSH MCP client YAML 片段**。默认 dry-run；`apply: true` 时把片段写到 `$DSH_HOME/dsh-chat-import/mcp-mirror.cordis.yml`（或者 `outPath` 指定的位置）。它绝不自动改 profile：
 
 ```
 import_mcp()                                  // dry-run：列出 server + YAML 片段
@@ -202,22 +221,28 @@ import_mcp({ apply: true })                   // 写盘生成片段
 /mcp-status                                   // 列出发现的 server
 ```
 
-### import_settings — settings/config 翻译建议
+### import_settings —— settings / config 翻译建议
 
-`import_settings` 读取 **Claude `~/.claude/settings.json`** 与 **Codex `~/.codex/config.toml`**，返回迁移到 DSH 的建议：模型绑定、权限规则、hooks、环境变量、模型 provider。只读，绝不自动应用：
+`import_settings` 读取 **Claude 的 `~/.claude/settings.json`** 和 **Codex 的 `~/.codex/config.toml`**，返回迁移到 DSH 的建议，涵盖模型绑定、权限规则、hooks、环境变量与模型 provider。它只读，绝不自动应用：
 
 ```
 import_settings()                             // 列出建议
 /settings-suggest                             // 斜杠命令同款
 ```
 
-### 浏览器面板 — 侧边栏发现与导入
+### 浏览器面板 —— 侧边栏发现与导入
 
-dsh web 的左侧栏底部有唯一一个「导入会话」入口：**导入会话**按钮（样式对齐「设置」入口、图标用插件 logo；`sidebar.footer.action` 槽条目，与同槽其它条目共享那条 footer 行。同槽出现整宽条目——插件徽标、费用卡之类——时整行改为换行堆叠，各条目各占一整行；只是与更窄的入口抢同一行、放不下文字时，入口缩成 36×36 圆钮，文字保留在 tooltip / aria-label 里。两种情况下都不会被截断或遮挡）。插件**要求 dsh ≥ 0.1.5-rc.1**（`peerDependencies` 已抬门槛）：导入窗口**停靠进官方原生右侧栏**——插件在右侧栏注册「导入会话」tab 类型（guide 页有带图标 / 标题 / 一行描述的胶囊），点按钮即通过 `sidebarRight.openTab('chat-import')` 打开该 tab、中间的对话区保留。无回落链：没有官方右侧栏的老版本不再受客户端支持。窗口内**按工作区文件夹分组**列出发现的会话（各来源记录里的 `cwd`/项目名，缺省归入「(未分组)」），支持来源过滤——「全部来源」扫描全部格式的默认数据根，单选来源则只看该格式——每行只显示来源工具标、标题与相对时间（上下文 / 分支 / 导入状态收进悬停提示）；**点这一行的任意处即勾选**（键盘聚焦后用 Enter / 空格），行首工具标只作来源标识与选中态指示（选中时叠遮罩与勾），不再需要瞄准 22px 的方图；行内导入按钮是唯一例外，点它只执行导入、不会连带勾选；单条导入按钮默认隐藏，悬停（或键盘聚焦）该行时出现在时间的位置。搜索框按标题 / 工作区 / 路径过滤，列表**分页**展示（每页 500 / 2000 / **全部** 可选，默认 500；列表只挂载可视区那十几行，档位大小不影响渲染开销；选「全部」即不分页），跨页选择保留便于批量操作。扫描进度与分页信息合并在列表下方同一条状态栏：扫描中显示「已发现 N 个」，完成后显示页码与总数。
+dsh web 的左侧栏底部只有一个「导入会话」入口：**导入会话**按钮。它的样式对齐「设置」入口，图标用插件 logo，作为 `sidebar.footer.action` 槽的条目，与同槽的其他条目共用那条 footer 行。同槽出现整宽条目（插件徽标、费用卡之类）时，整行改为换行堆叠，每个条目各占一整行；只是和更窄的入口抢同一行、放不下文字时，入口缩成 36×36 的圆钮，文字保留在 tooltip 和 aria-label 里。两种情况下都不会被截断或遮挡。
 
-每行支持**单选导入**，复选框支持**多选导入**（「导入所选 (N)」）：面板调用与 `import_*` 工具完全相同的 host 导入管线，重导语义（未变跳过 / 未续聊续写 / 已续聊新建副本）/ force / 上下文预算语义完全一致；导入后自动刷新列表展示最新状态。多会话源（如 `conversations.json`、opencode/zcode/hermes 库）整源导入——opencode/zcode 只导所选 `sessionId`。
+插件**要求 dsh ≥ 0.1.5-rc.1**（`peerDependencies` 已经抬高门槛）。导入窗口**停靠进官方原生右侧栏**：插件在右侧栏注册「导入会话」这个 tab 类型（guide 页有一个带图标、标题和一行描述的胶囊），点按钮就通过 `sidebarRight.openTab('chat-import')` 打开这个 tab，中间的对话区照常保留。这里没有回落链：没有官方右侧栏的老版本，客户端不再支持。
 
-面板顶部一行读作「**从** <来源> **导入到** <落点>」：左边选来源、右边选落点（品牌标只在下拉弹层里显示，触发器只留文本；来源行直接画该工具的官方品牌锁标——品牌标 + 字标，取自 @lobehub/icons，没有官方标的来源退回白卡标 + 文本）。搜索框按标题 / 工作区 / 路径过滤；工具栏末位是**两个筛选按钮**——「筛选：路径」（按工作区目录过滤，下拉带检索与路径副标题）与「筛选：时间」（24 小时 / 7 天 / 30 天 / 不筛选，四项短菜单不带检索框），两者都保持文字、窄面板下整体换行；已选条数只在底部主按钮「导入所选 (N)」上显示。列表下方是同一条状态栏：翻页只留左右图标（不套框），页码是「第 x / y 页」控件——点开在栏上方弹出**页码网格**，点数字直接跳页；只有一页（总数不足一档，默认档为 500）时整组不显示；总数不足 500 时连「每页」选择器一起隐藏，只剩总数。右侧是每页 500 / 2000 / 全部。
+窗口里按工作区文件夹分组列出发现的会话（用各来源记录里的 `cwd` 或项目名，都没有就归入「(未分组)」），并支持按来源过滤：「全部来源」会扫描所有格式的默认数据根，单选某个来源就只看该格式。每行只显示来源工具标、标题和相对时间，上下文、分支、导入状态放在悬停提示里。**点这一行的任意位置就勾选**（键盘聚焦后用 Enter 或空格），行首的工具标只负责标识来源与指示选中态（选中时叠一层遮罩加一个勾），不用再瞄准 22px 的小方块。唯一的例外是行内导入按钮：点它只执行导入，不会连带勾选。这个按钮默认隐藏，悬停或键盘聚焦到该行时，它出现在时间的位置。
+
+搜索框按标题、工作区、路径过滤。列表**分页**展示，每页 500 / 2000 / **全部** 可选，默认 500；列表只挂载可视区那十几行，所以档位大小不影响渲染开销，选「全部」就是不分页。跨页选择会保留，方便批量操作。扫描进度与分页信息合并在列表下方的同一条状态栏里：扫描中显示「已发现 N 个」，完成后显示页码与总数。
+
+每行支持**单选导入**，复选框支持**多选导入**（按钮写作「导入所选 (N)」）。面板调用的是与 `import_*` 工具完全相同的 host 导入管线，所以重导语义（未变跳过、未续聊续写、已续聊新建副本）、force、上下文预算都完全一致；导入后列表会自动刷新，展示最新状态。多会话源（例如 `conversations.json`，或 opencode / zcode / hermes 的库）按整源导入，其中 opencode 与 zcode 只导所选的那些 `sessionId`。
+
+面板顶部那一行读作「**从** <来源> **导入到** <落点>」：左边选来源，右边选落点。品牌标只在下拉弹层里出现，触发器上只留文本；来源行会直接画出该工具的品牌锁标（品牌标加字标，取自 @lobehub/icons），没有官方标的来源退回白卡标加文本。工具栏末位是**两个筛选按钮**：「筛选：路径」（按工作区目录过滤，下拉带检索和路径副标题）和「筛选：时间」（24 小时 / 7 天 / 30 天 / 不筛选，四项短菜单不带检索框）。两者都保持文字，窄面板下整体换行。已选条数只显示在底部主按钮「导入所选 (N)」上。列表下方是同一条状态栏：翻页只留左右图标，不套框；页码是「第 x / y 页」控件，点开会在栏上方弹出**页码网格**，点数字直接跳页。只有一页时（总数不足一档，默认档是 500）整组不显示；总数不足 500 时，「每页」选择器也一起隐藏，只剩总数。右侧是每页 500 / 2000 / 全部。
 
 | 选择 | 行为 |
 | --- | --- |
@@ -227,54 +252,54 @@ dsh web 的左侧栏底部有唯一一个「导入会话」入口：**导入会�
 | Codex / Kimi Code | 分别写成 Codex rollout JSONL / Kimi `wire.jsonl` 落到 `~/.dsh/exports/`，由你放进对应工具的 sessions 目录。 |
 | opencode | 写成 opencode JSON 落到 `~/.dsh/exports/`，随后用 `opencode import <文件>` 导入。 |
 
-来源与落点**都是 DSH 且代次不同**（V3 ↔ V4）时，底部会多出一个主按钮「**导入所选并归档旧会话 (N)**」：所选会话按目标代次导入，**导入成功**后把对应的**源会话**在宿主里归档（迁移的收尾）。归档是不可逆的隐藏动作（宿主没有取消归档面），所以**只有导入成功的条目才归档**——跳过 / 失败的条目原样保留，面板会点名「N 个旧会话未归档」。
+来源与落点**都是 DSH、但代次不同**（V3 ↔ V4）时，底部会多出一个主按钮「**导入所选并归档旧会话 (N)**」：所选会话按目标代次导入，**导入成功**之后，才把对应的**源会话**在宿主里归档，作为迁移的收尾。归档是不可逆的隐藏动作（宿主没有取消归档的接口），所以**只有导入成功的条目才归档**：跳过和失败的条目原样保留，面板会点名「N 个旧会话未归档」。
 
-非 DSH 目标是**转投而不是导入**：插件用同一套转换器读源会话，序列化成目标工具自己的格式（即 `export_chat` 用的那些序列化器），以 `createIfAbsent` 落盘（绝不覆盖）。为这次转换而临时建立的 DSH 会话会在**导出成功后立刻撤回**，DSH 侧不留副本；但如果会话在你选择转投之前就已存在（already-imported / appended），**绝不删除**——只导出，并在结果里标为保留。撤回失败（会话在运行、工件被占用）会把原因写进结果而不是吞掉。结果行显示落盘路径与该工具的下一步操作，条目级失败与常规 `degradations` 清单照常列出。
+非 DSH 目标是**转投，不是导入**：插件用同一套转换器读取源会话，再序列化成目标工具自己的格式（就是 `export_chat` 用的那些序列化器），以 `createIfAbsent` 落盘，绝不覆盖。为这次转换临时建的 DSH 会话，会在**导出成功后立刻撤回**，DSH 侧不留副本。但如果会话在你决定转投之前就已经存在（already-imported 或 appended），**绝不删除**——只导出，并在结果里标为保留。撤回失败时（会话正在运行、工件被占用），原因会写进结果，而不是被吞掉。结果行会显示落盘路径，以及该工具接下来的操作步骤；条目级失败和常规的 `degradations` 清单照常列出。
 
-> **转投与图片**：目标工具能承载图片时（Claude Code / Codex），图片会先按常规路径落进中间会话的附件存储、导出时读回字节写进目标格式——但中间会话随后被撤回，而宿主附件服务没有删除面，所以这些图片字节会**留在附件存储里无法回收**。结果里 `attachmentsOrphaned: <N>` 会点名这个张数。目标工具导不出图片时（Kimi 的 wire 只认自有 blob、opencode 的 file part 另需外部文件），插件**不落**这些字节（图片降级为占位并在结果里计数），免得白白留下无法回收的数据。
+> **转投与图片**：目标工具能承载图片时（Claude Code、Codex），图片会先按常规路径落进中间会话的附件存储，导出时读回字节写进目标格式。但中间会话随后会被撤回，而宿主附件服务没有删除接口，所以这些图片字节会**留在附件存储里，无法回收**。结果里 `attachmentsOrphaned: <N>` 会点名这个张数。目标工具导不出图片时（Kimi 的 wire 只认自有 blob，opencode 的 file part 还需要外部文件），插件**不会落**这些字节，而是把图片降级为占位并在结果里计数，免得白白留下回收不掉的数据。
 
-> 数据来自与 `scan_discover` 同一套只读发现（30s TTL 缓存 + 持久化 mtime 书签）；面板除你主动触发的导入外零写入。
+> 数据来自与 `scan_discover` 同一套只读发现（30s TTL 缓存，加上持久化的 mtime 书签）。除了你主动触发的导入，面板不做任何写入。
 
-> **导入的会话落在哪个工作区**（细节见 docs/architecture.md D16）：宿主只接受「会话 cwd 与工作区路径相等」的挂接，所以插件在创建会话前先定落点——cwd 命中已有工作区就沿用它；cwd 是本机目录就在该目录建一个工作区（会话与原生会话同区，侧栏会出现这个新分组）；cwd 不在本机 / 拿不到（含主目录，沙箱 ACL 不允许）时落到**专用导入工作区** `$DSH_HOME/dsh-chat-import-workspace`（cwd 随之改写）。`workspaceMode` 可选 `auto`（默认，上述规则）/ `per-project`（不改写 cwd，宁可「未分组」）/ `dedicated`（一律落专用工作区，`workspaceDir` 可覆盖目录）。归组结果一律写进导入结果：`workspace` / `workspaceCreated`（侧栏多出的分组）与 `ungrouped` + `ungroupedReason`（会话已导入，但停在侧栏最底部的「未分组」——看不到时先滚到列表末尾）。旧版本为源 transcript 目录误建的空工作区，可用「导入历史」页的「**清理空工作区**」按钮移除（只删成员为 0 的工作区登记，目录与会话日志保留）。
+> **导入的会话落在哪个工作区**（细节见 `architecture.md` D16）：宿主只接受「会话 cwd 与工作区路径相等」的挂接，所以插件在创建会话之前先把落点定下来。cwd 命中已有工作区，就沿用它；cwd 是本机目录，就在该目录建一个工作区（会话与原生会话同区，侧栏会多出这个分组）；cwd 不在本机、或者拿不到（包括主目录，沙箱 ACL 不允许），就落到**专用导入工作区** `$DSH_HOME/dsh-chat-import-workspace`，cwd 也随之改写。`workspaceMode` 可以选 `auto`（默认，就是上面这套规则）、`per-project`（不改写 cwd，宁可「未分组」）、`dedicated`（一律落专用工作区，目录可用 `workspaceDir` 覆盖）。归组结果一律写进导入结果：`workspace` / `workspaceCreated` 表示侧栏多出的分组，`ungrouped` + `ungroupedReason` 表示会话已导入但停在侧栏最底部的「未分组」（找不到时先滚到列表末尾）。旧版本曾经为源 transcript 目录误建过空工作区，可以用「导入历史」页的「**清理空工作区**」按钮移除；它只删成员为 0 的工作区登记，目录与会话日志都保留。
 
-> **导入完成会弹一条落点提示**（官方 `shell.overlay` 的 Toast：顶部居中，约 6 秒后自动消失）：「导入完成 → <工作区路径>（本次新建该工作区）；另有 N 个未归组」。面板结果栏里仍有完整计数，这条只是保证你切走 tab 或收起右栏时也知道**这次落到哪了**；转投（导入到 DSH 之外）弹的是写出的文件路径。**被幂等跳过的会话用同一条 Toast 提示**：「已跳过 N 个未变化 / 无法安全续写的对话」+「重新导入为新会话」按钮（= 用 force 另铸新会话，动作按钮的停留时间 15 秒）；面板里原先那条底部黄条已并入 Toast。宿主没有官方 `Toast` 组件的旧版本上，插件退化为同位置、同样带动作按钮的自绘横幅（见 docs/architecture.md D17）。
+> **导入完成会弹一条落点提示**，用的是官方 `shell.overlay` 的 Toast：顶部居中，约 6 秒后自动消失。内容是「导入完成 → <工作区路径>（本次新建该工作区）；另有 N 个未归组」。面板结果栏里仍有完整计数，这条 Toast 只是保证你切走 tab 或收起右栏之后，也知道**这次落到了哪**。转投（导入到 DSH 之外）弹的是写出的文件路径。**被幂等跳过的会话也用同一条 Toast 提示**：「已跳过 N 个未变化 / 无法安全续写的对话」，外加一个「重新导入为新会话」按钮（等于用 force 另铸新会话，按钮停留 15 秒）。面板里原来那条底部黄条已经并进 Toast。宿主没有官方 `Toast` 组件的旧版本上，插件退化为位置相同、同样带动作按钮的自绘横幅（见 `architecture.md` D17）。
 
-### 从文件导入 — 任意本地文件与长尾工具
+### 从文件导入 —— 任意本地文件与长尾工具
 
-发现列表只覆盖插件内置的来源。手上是别的工具导出的文件（网页版导出、自写脚本、长尾工具的原生存储）时，用「**从文件导入**」：
+发现列表只覆盖插件内置的来源。如果手上的文件来自别的工具（网页版导出、自己写的脚本、长尾工具的原生存储），就用「**从文件导入**」：
 
-- **面板**：导入 tab 顶部的「从文件导入」折叠区。两种给文件的方式——**填本机路径后回车**（桌面端 host 直读，无大小限制；路径是目录时弹窗问「是否搜索子文件夹」，用宿主内置预设样式的 Modal）、或点「**选择…**」用系统文件框挑文件（浏览器只有 `File` 对象，走**上传通道**分片传到 `$DSH_HOME/dsh-chat-import/uploads/`）。面板**不注册拖放**：把会话文件拖进 DSH 窗口会被宿主当成「给当前对话加附件」抢走控制权，这里不与宿主抢手势。
-- **命令**：`/import auto <路径>`（`local-jsonl` 同义）；工具面是 `import_chat({ format: "local-jsonl", path })`，`parseFormat` 可强制解析器。
+- **面板**：导入 tab 顶部的「从文件导入」折叠区。给文件有两种方式。一种是**填本机路径后回车**，桌面端由 host 直读，没有大小限制；路径是目录时会弹窗问「是否搜索子文件夹」，弹窗用的是宿主内置预设样式的 Modal。另一种是点「**选择…**」用系统文件框挑文件，这时浏览器手上只有 `File` 对象，会走上**上传通道**分片传到 `$DSH_HOME/dsh-chat-import/uploads/`。面板**不注册拖放**：会话文件拖进 DSH 窗口会被宿主当成「给当前对话加附件」抢走，这里不去和宿主抢手势。
+- **命令**：`/import auto <路径>`（和 `local-jsonl` 同义）。工具面是 `import_chat({ format: "local-jsonl", path })`，`parseFormat` 可以强制指定解析器。
 
-**识别（三级探测）**：显式 `format` > **内容标记**（interchange 文档 / `.dshbundle` 便携包，只扫文件头）> 路径特征排序后逐个解析器试跑。命中的格式与判据（`detectedFormat` / `detectedBy`）显示在预览里。面板只走自动识别与 DSH 落点（不摆格式 / 目标下拉）；要强制指定解析器或转投到别的工具，用 `import_chat` 的 `parseFormat` / `target`（面板的发现列表另有「导入到」）。
+**识别（三级探测）**：先看显式 `format`；没有就看**内容标记**（interchange 文档或 `.dshbundle` 便携包，只扫文件头）；再没有，就按路径特征给候选排序，逐个解析器试跑。命中的格式和判据（`detectedFormat` / `detectedBy`）会显示在预览里。面板只走自动识别与 DSH 落点，不摆格式和目标下拉；要强制指定解析器、或者转投到别的工具，用 `import_chat` 的 `parseFormat` / `target`（面板的发现列表另有「导入到」）。
 
-**预览先行**：路径填好回车（或点「预览」）即只读预览（零副作用）——识别为哪种格式、标题、轮 / 消息 / 工具调用计数、cwd、时间与降级计数。目录先按**当前层**扫一遍并弹出「是否搜索子文件夹」：选「仅当前目录」就用这份结果，选「包含子文件夹」再按递归重扫（目录树可能很大，不做无谓下钻）。目录结果展开成可勾选的条目列表（已识别的默认勾选），「导入所选」逐条导入。
+**预览先行**：路径填好回车（或点「预览」）就会先做一次只读预览，零副作用，告诉你识别成哪种格式、标题、轮 / 消息 / 工具调用计数、cwd、时间与降级计数。目录会先按**当前层**扫一遍，然后弹出「是否搜索子文件夹」：选「仅当前目录」就用这份结果，选「包含子文件夹」再按递归重扫（目录树可能很大，不做无谓的下钻）。目录结果会展开成可勾选的条目列表（已识别的默认勾选），点「导入所选」逐条导入。
 
-**识别失败不是死胡同**：卡片先给一句结论「所有对话格式解析器全部解析失败（N 个）」，**失败清单默认收起**（点「展开失败清单（N）」逐条看「解析器：原因」），下面一行提示「请复制失败摘要给 Agent」——复制的就是一份可直接发给 Agent 的任务模板（任务说明 + 指南链接 + 源路径 + 产出要求 + 逐解析器失败原因）。转换指南本身（[interchange 转换指南](INTERCHANGE-GUIDE.zh-CN.md)：`"interchange": "dsh-chat-import"` 标记，任何工具或脚本都能产出）同时注册为宿主运行时 skill `dsh-chat-import-convert`，DSH 内的 Agent 可直接调用它拿到指令，GitHub 链接只是兜底。未识别时卡片不再显示恒为 0 的轮/消息/工具调用计数，也不重复一遍「未能识别」——0 轮或无法识别的文件禁用导入按钮，**绝不产出打不开的空壳会话**。
+**识别失败不是死胡同**：卡片会先给一句结论「所有对话格式解析器全部解析失败（N 个）」。**失败清单默认收起**，点「展开失败清单（N）」可以逐条看「解析器：原因」。下面一行提示「请复制失败摘要给 Agent」，复制出来的是一份可以直接发给 Agent 的任务模板：任务说明、指南链接、源路径、产出要求，以及逐个解析器的失败原因。转换指南本身（[interchange 转换指南](INTERCHANGE-GUIDE.zh-CN.md)，靠 `"interchange": "dsh-chat-import"` 标记识别，任何工具或脚本都能产出）同时注册为宿主运行时 skill `dsh-chat-import-convert`，DSH 里的 Agent 可以直接调用它拿到指令，GitHub 链接只是兜底。未识别时，卡片不再显示恒为 0 的轮 / 消息 / 工具调用计数，也不重复一遍「未能识别」：0 轮或无法识别的文件会禁用导入按钮，**绝不产出打不开的空壳会话**。
 
-**便携包**：`.dshbundle.json` 在文件导入里被识别为备份包，导入即走 `restore_bundle`（双层指纹校验 + 还原为可继续会话），不会被当成普通转录。
+**便携包**：`.dshbundle.json` 在文件导入里会被识别为备份包，导入时走 `restore_bundle`（双层指纹校验，再还原成可继续的会话），不会当成普通转录处理。
 
-**上传暂存**：分片上传按 (sha256, size) 幂等——页面刷新或断线后从已收字节续传，同一文件重复上传零重传；整文件指纹校验通过才产出可导入文件。配额：单文件 256MiB、暂存总量 2GiB、未完成上传 24 小时后回收。导入后的暂存文件**保留**（重导语义以它为源键），未被引用的件可在面板的暂存清理入口删除。
+**上传暂存**：分片上传按 (sha256, size) 幂等，所以页面刷新或断线后能从已收字节续传，同一个文件重复上传不会重传；整文件指纹校验通过之后，才产出可导入的文件。配额是单文件 256MiB、暂存总量 2GiB、未完成的上传 24 小时后回收。导入后的暂存文件**会保留**（重导语义以它为源键），没被引用的件可以在面板的暂存清理入口删掉。
 
 ### `/import` 斜杠命令与 `/resume-*` 交接
 
-插件还注册了一个 **`/import <source> <path>`** 斜杠命令（在挂载了 dsh `commands` 服务的环境下可用）：直接在会话里输入即可导入，不占模型轮次——与 `import_*` 工具同一管线、同一重导 / force / 上下文预算语义。`<source>` 接受短名（`claude`、`codex`…）、客户端来源 id（`claude-code`）或旧工具形别名（`import_claude`）；`<path>` 为 transcript 文件或会话目录 / 数据根（单文件导入 / 目录批量照常判定）。
+插件还注册了一个 **`/import <source> <path>`** 斜杠命令，在挂载了 dsh `commands` 服务的环境里可用。直接在会话里输入就能导入，不占模型轮次，与 `import_*` 工具走同一管线，重导、force、上下文预算的语义都一样。`<source>` 接受短名（`claude`、`codex` 等）、客户端来源 id（`claude-code`）或旧工具形式的别名（`import_claude`）；`<path>` 是 transcript 文件，也可以是会话目录或数据根（单文件导入还是目录批量，照常判定）。
 
-**`/import-all [source] [path] [--force]`** 一键扫描默认数据根（或单一来源 / 显式路径）并批量导入所有未导入会话——同一管线：未变跳过、未续聊续写、已续聊另建副本，归档与已忽略源跳过，扫描失败的来源与逐条失败都点名上报。`--force` 让已导入 / 归档的会话也另铸副本重导，**必须带 `path` 限定范围**（不限定就是把每个已导入会话都重导一份）。批量编排与第三方插件拿到的 `chatImport.importAll` 是同一个函数（`lib/chat-import-service.mjs` 的 `runChatImportAll`），两处计数与失败口径不会分叉。
+**`/import-all [source] [path] [--force]`** 一键扫描默认数据根（或单一来源、或显式路径），批量导入所有还没导入的会话。管线和上面一样：未变跳过、未续聊续写、已续聊另建副本；归档和已忽略的源跳过；扫描失败的来源与逐条失败都会点名上报。`--force` 让已导入、已归档的会话也另铸副本重导，**必须带 `path` 限定范围**，否则就等于把每个已导入会话都重导一份。批量编排与第三方插件拿到的 `chatImport.importAll` 是同一个函数（`lib/chat-import-service.mjs` 里的 `runChatImportAll`），两边的计数与失败口径不会分叉。
 
-**`/ignores`** 列出忽略表（归档 / 删除 / 删工作区自动登记）；**`/ignore <sessionId|sourcePath>`** 手动忽略一个源；**`/unignore <sessionId|sourcePath|all>`** 解除忽略（`all` 清空）。被忽略的源在重扫与 `/import-all` 中一律跳过；`force: true` 可越权导入一次（不解除墓碑）。
+**`/ignores`** 列出忽略表（归档、删除、删工作区时会自动登记）；**`/ignore <sessionId|sourcePath>`** 手动忽略一个源；**`/unignore <sessionId|sourcePath|all>`** 解除忽略（`all` 表示清空）。被忽略的源在重扫和 `/import-all` 里一律跳过；`force: true` 可以越权导入一次（但不解除墓碑）。
 
-**`/attach-workspaces`** 按 imports registry 把已导入会话重新挂到工作区——适合修复早期落在「未分组」的导入；幂等，可重复执行。归组依据是**每个会话 header 里的 cwd**（宿主只接受 cwd 与工作区路径相等的挂接）：cwd 命中已有工作区 → 直接挂；cwd 是本机目录 → 先建工作区再挂；cwd 不在本机（跨机器导入）或不可用时**如实报告未归组**——已落盘会话的 cwd 不可改写，要换 cwd 请用 `force: true` 重导一份（新会话按落点归组）。参数：`--mode auto|dedicated|per-project` 与 `--dir <path>`（dedicated 用）。
+**`/attach-workspaces`** 按 imports registry 把已导入会话重新挂到工作区，适合修复早期落在「未分组」的导入。它幂等，可以重复执行。归组依据是**每个会话 header 里的 cwd**，因为宿主只接受 cwd 与工作区路径相等的挂接：cwd 命中已有工作区就直接挂；cwd 是本机目录就先建工作区再挂；cwd 不在本机（跨机器导入）或者不可用，就**如实报告未归组**。已落盘会话的 cwd 改不了，要换 cwd 只能用 `force: true` 重导一份（新会话按落点归组）。参数：`--mode auto|dedicated|per-project`，以及 dedicated 用的 `--dir <path>`。
 
-**`/doctor`** 运行与 `doctor` 工具相同的只读健康检查，并输出简洁报告。
+**`/doctor`** 运行与 `doctor` 工具相同的只读健康检查，输出一份简洁报告。
 
-**`/mcp-status`** 只读列出从 Claude/Codex 配置中发现的 MCP server；需要生成 DSH MCP client 片段时使用 `import_mcp`。
+**`/mcp-status`** 只读列出从 Claude / Codex 配置里发现的 MCP server；需要生成 DSH MCP client 片段时用 `import_mcp`。
 
-**`/settings-suggest`** 只读列出 Claude/Codex 配置翻译建议；需要结构化工具输出时使用 `import_settings`。
+**`/settings-suggest`** 只读列出 Claude / Codex 配置的翻译建议；需要结构化的工具输出时用 `import_settings`。
 
-**`/import-reset`** 清空扫描缓存（进程内 TTL + 持久化 `scan-cache.json`），适合发现结果疑似过期时强制重扫；已导入会话不受影响。
+**`/import-reset`** 清空扫描缓存（进程内的 TTL 缓存加持久化的 `scan-cache.json`），发现结果疑似过期时可以强制重扫；已导入的会话不受影响。
 
-**`/resume-claude [id:<会话id> | 关键词]`** 与 **`/resume-codex`** 从外部 transcript 生成**交接摘要**（目标 + 最后请求、涉及文件/产物、最近工具调用、精确停止点、最安全下一步）并注入当前会话，让你在 DSH 里接着干——把 transcript 当**不可信静态历史**（不复述 system/developer/thinking；旧工具输出视为过期证据需复核）。留空取最近会话，`id:<会话id>` 精确指定，或用标题关键词——**多匹配列候选不猜测**：
+**`/resume-claude [id:<会话id> | 关键词]`** 与 **`/resume-codex`** 从外部 transcript 生成一段**交接摘要**（目标与最后请求、涉及的文件和产物、最近的工具调用、精确的停止点、最安全的下一步），注入当前会话，让你在 DSH 里接着做。它把 transcript 当作**不可信的静态历史**：不复述 system / developer / thinking 的内容，旧工具输出也只当作过期证据，需要复核。参数留空取最近的会话，`id:<会话id>` 精确指定，或者给一个标题关键词；**匹配到多个时会列出候选，不猜**：
 
 ```
 /resume-claude id:282095ab-1111-4222-8333-444455556666
@@ -283,16 +308,16 @@ dsh web 的左侧栏底部有唯一一个「导入会话」入口：**导入会�
 
 ### 会话启动上下文增强
 
-两个可选钩子在 DSH 会话启动时运行（host `agent/session-start` 事件），均为 agent 级作用域、绝不触碰你的 transcript：
+两个可选钩子在 DSH 会话启动时运行（host 的 `agent/session-start` 事件），作用域都是 agent 级，绝不碰你的 transcript：
 
-- **迁移提示（默认开）**——当会话工作区存在可发现的（已导入或可导入）外部聊天历史时，注入一行 `PromptContext`，告诉模型如何继续（`/import <source> <path>` 命令或侧边栏面板）。per-project 记忆保证同一工作区只提示一次；设 `DSH_IMPORT_SESSION_HINT=0` 关闭。
-- **Claude 上下文桥接（默认关）**——设 `DSH_IMPORT_CONTEXT_BRIDGE=1` 把 Claude Code 的上下文资产桥进会话：`~/.claude/memory/*.md`（按 `feedback` > `project` > `reference` > `user` 分组、8 KiB 上限、mtime 缓存重读）、项目根 `CLAUDE.md` **与全局 `~/.claude/CLAUDE.md`**、以及 `~/.claude/skills/*/SKILL.md`（注册为该 agent 独有的 `claude-<name>` 技能）。
+- **迁移提示（默认开）** —— 如果会话工作区里有可发现的外部聊天历史（已导入的或可导入的），就注入一行 `PromptContext`，告诉模型怎么继续（`/import <source> <path>` 命令，或侧边栏面板）。per-project 记忆保证同一个工作区只提示一次；设 `DSH_IMPORT_SESSION_HINT=0` 可以关闭。
+- **Claude 上下文桥接（默认关）** —— 设 `DSH_IMPORT_CONTEXT_BRIDGE=1`，把 Claude Code 的上下文资产桥进会话：`~/.claude/memory/*.md`（按 `feedback` > `project` > `reference` > `user` 分组，8 KiB 上限，按 mtime 缓存重读）、项目根的 `CLAUDE.md` **与全局 `~/.claude/CLAUDE.md`**，以及 `~/.claude/skills/*/SKILL.md`（注册成该 agent 独有的 `claude-<name>` 技能）。
 
 ### 设置页（会话导入）
 
-设置页「会话导入」分区提供两个开关，经面板 fenced 路由读写（与 settingsScope 白名单无关）：
+设置页的「会话导入」分区提供两个开关，经面板的 fenced 路由读写（与 settingsScope 白名单无关）：
 
-- **导入系统提示词（默认开）**——把源会话的 system / developer 提示词作为「上下文注入」保留；关闭后仅保留环境变更声明。
-- **将本插件工具显式注入对话上下文（默认开）**——关闭后不再向对话内的 Agent 注入本插件的 12 个工具（可节省约 2.8k 上下文）；导入、导出、发现与撤回等仍可通过 GUI「导入会话」面板与斜杠命令完成。
+- **导入系统提示词（默认开）** —— 把源会话的 system / developer 提示词作为「上下文注入」保留；关闭后只保留环境变更声明。
+- **将本插件工具显式注入对话上下文（默认开）** —— 关闭后不再向对话内的 Agent 注入本插件的 12 个工具（约省 2.8k 上下文）。导入、导出、发现、撤回这些操作仍可通过 GUI 的「导入会话」面板与斜杠命令完成。
 
-**工具常驻成本。** `import_chat` 的 schema 只带一次调用需要的东西：format 枚举、必填的 `path`，以及「默认值会改变结果」的那几个参数各一行说明（≈0.7k tokens，此前 ≈1.6k；技能目录自身多一行 ≈46 tokens，故精简档净省约 0.9k/轮）。29 个来源的 path 形状表、完整参数详解与重导规则在 [IMPORT-GUIDE.zh-CN.md](IMPORT-GUIDE.zh-CN.md)，并注册为宿主运行时 skill **`dsh-chat-import-usage`**——Agent 在真要导入前加载一次，而不是每轮请求都为它付费；其余 11 个工具在「全量」档是同一笔账。schema 与指南的一致性由 `test/import-guide.test.mjs`（指南的来源表必须与代码逐字一致）与 `test/tools-injection.test.mjs`（常驻 payload 上限，挡住说明重新长回 schema）守住。
+**工具常驻成本**：`import_chat` 的 schema 只带一次调用需要的东西——format 枚举、必填的 `path`，以及「默认值会改变结果」的那几个参数各一行说明。这部分约 0.7k tokens，此前约 1.6k；技能目录自己多出一行，约 46 tokens，所以精简档每轮净省约 0.9k。29 个来源的 path 形状表、完整参数详解与重导规则都在 [IMPORT-GUIDE.zh-CN.md](IMPORT-GUIDE.zh-CN.md)，并注册为宿主运行时 skill **`dsh-chat-import-usage`**：Agent 在真要导入之前加载一次，而不是每轮请求都为它付费。其余 11 个工具在「全量」档是同一笔账。schema 与指南的一致性有两道测试守着：`test/import-guide.test.mjs` 要求指南的来源表与代码逐字一致；`test/tools-injection.test.mjs` 设了常驻 payload 上限，挡住说明重新长回 schema。
