@@ -139,6 +139,7 @@ Hermes 默认扫描 Windows 的 `%LOCALAPPDATA%\hermes` 与 `~/.hermes`；`LOCAL
 | [使用详解](docs/USAGE.zh-CN.md) | 每个工具 / 命令的完整参数、示例与边界行为 |
 | [互转协议](docs/INTERCHANGE.md) | Interchange v1 协议与 bundle 格式 |
 | [转换指南](docs/INTERCHANGE-GUIDE.zh-CN.md) | 给 Agent 的 Skill 指令：把任意转录转成可导入的 interchange v1 文档 |
+| [导入指南](docs/IMPORT-GUIDE.zh-CN.md) | 给 Agent 的 Skill 指令：`import_chat` 的来源格式表、参数详解与重导规则 |
 | [设置页迁移](docs/SETTINGS-MIGRATION.zh-CN.md) | DSH 0.1.5 → 0.1.7 插件设置页迁移（实测报错、兼容写法） |
 | [更新日志](CHANGELOG.md) | 版本历史（英文） |
 | [路线图](docs/ROADMAP.md) | 已实现 / 规划 |

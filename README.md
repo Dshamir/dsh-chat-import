@@ -140,6 +140,7 @@ Hermes discovery scans `%LOCALAPPDATA%\hermes` and `~/.hermes` on Windows. If `L
 | [Usage Reference](docs/USAGE.md) | Full parameters, examples, and edge cases for every tool / command |
 | [Interchange Protocol](docs/INTERCHANGE.md) | Interchange v1 protocol and bundle format |
 | [Conversion Guide](docs/INTERCHANGE-GUIDE.md) | Agent-facing skill instructions: convert any transcript into an importable interchange v1 document |
+| [Import Guide](docs/IMPORT-GUIDE.md) | Agent-facing skill instructions: format table, parameter reference and re-import rules for `import_chat` |
 | [Settings Migration](docs/SETTINGS-MIGRATION.md) | DSH 0.1.5 → 0.1.7 plugin settings-page migration (measured errors, compatibility recipe) |
 | [Changelog](CHANGELOG.md) | Version history |
 | [Roadmap](docs/ROADMAP.md) | Shipped / planned |

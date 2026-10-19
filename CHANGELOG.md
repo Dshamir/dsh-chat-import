@@ -6,9 +6,19 @@ All notable changes to `dsh-chat-import` are documented here, newest first.
 
 [中文](#cn-unreleased) | [English](#en-unreleased)
 
+<h3 id="cn-unreleased">体验优化</h3>
+
+- **`import_chat` 的常驻 schema 瘦身 59%，长文改由运行时 skill 按需加载**：schema 只留一次调用需要的东西——format 枚举、必填 `path`，以及「默认值会改变结果」的那几个参数各一行说明；29 个来源的 path 形状表、完整参数详解与重导规则下沉到 `docs/IMPORT-GUIDE.md`，并注册为宿主运行时 skill `dsh-chat-import-usage`（`import_chat` 的 description 点名它，模型在真要导入前加载一次）。口径是宿主真正发给模型的部分（name + description + parameters；`output.schema` 不上线、不计费），本机实测：`import_chat` 常驻 1633 → 663 tokens，全量 12 个工具 3720 → 2762 tokens；技能目录多出的一行约 46 tokens，故精简档净省约 0.9k/轮。设置页「精简档省多少」原先写的约 4.5k 有误，按同口径修正为约 2.1k；「关闭注入」的约 5k 修正为约 2.8k。**22 个参数一个没少**（全部保留声明，只是说明搬到了按需付费的地方）；`docs/USAGE*.md` 与中英两份 README 的文档表同步。
+- **常驻成本进护栏，防止说明重新长回 schema**：`test/tools-injection.test.mjs` 的全量档 payload 上限从 15.3k 收紧到 12k，并单独钉住 `import_chat` ≤ 2.8k 字符；新增 `test/import-guide.test.mjs` 守住三条——指南的来源表与代码里的来源表逐字一致（中英两份）、每个声明的参数在指南里都有条目、schema 不再携带来源 path 形状表。
+
 <h3 id="cn-unreleased">其他变更</h3>
 
 - **发布流程移入 CI**：发布不再在本地执行 `npm publish` / `gh release`。推送 `v*` tag 后，`.github/workflows/release.yml` 校验 tag 与 `package.json` 版本一致、tag 提交在 `main` 上、CHANGELOG 版本节版式正确（`scripts/release-notes.mjs`），跑完全部门禁后以 trusted publishing + provenance 发布到 npm，并用同一版本节建 / 更新 GitHub Release；重跑会跳过 npm 上已有的版本。手动 `workflow_dispatch` 只校验、不发布。
+
+<h3 id="en-unreleased">Improvements</h3>
+
+- **`import_chat`'s resident schema is 59% smaller; the long form now loads on demand as a runtime skill**: the schema keeps only what a call needs — the format enum, the required `path`, and a one-line note for the parameters whose default would otherwise change the result. The 29-source path table, the full parameter reference and the re-import rules moved into `docs/IMPORT-GUIDE.md`, registered as the host runtime skill `dsh-chat-import-usage` (named by `import_chat`'s description, loaded once before an import actually happens). Measured on what the host really sends to the model (name + description + parameters; `output.schema` never reaches the model and is not billed): `import_chat` 1633 → 663 tokens resident, all 12 tools 3720 → 2762 tokens; the extra skill-catalog line costs ~46 tokens, so Minimal nets ~0.9k saved per request. The settings page's "Minimal saves ~4.5k" was wrong and is corrected to ~2.1k on the same basis; "Off saves ~5k" is corrected to ~2.8k. **All 22 parameters are still declared** — only their explanations moved to where they are paid for on demand; `docs/USAGE*.md` and both README doc tables follow.
+- **Resident cost is now guarded so explanations cannot creep back into the schema**: the full-surface payload ceiling in `test/tools-injection.test.mjs` tightened from 15.3k to 12k, plus a dedicated `import_chat` ≤ 2.8k ceiling; the new `test/import-guide.test.mjs` holds three lines — the guide's source table matches the code's table verbatim (both languages), every declared parameter has a guide entry, and the schema no longer carries the per-format path table.
 
 <h3 id="en-unreleased">Chores</h3>
 

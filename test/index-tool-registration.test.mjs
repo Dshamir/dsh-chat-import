@@ -42,13 +42,14 @@ test('apply 注册十二个工具（import_chat 分发器 + import_agents + doct
   }
 })
 
-test('apply 把转换指南注册为运行时 skill（skills 服务在场时）', () => {
+test('apply 把两条指南注册为运行时 skill（skills 服务在场时）', () => {
   const skills = []
   const { ctx } = makeCtx({}, { services: { skills: { register(def) { skills.push(def); return () => {} } } } })
   apply(ctx)
-  assert.equal(skills.length, 1)
-  assert.equal(skills[0].name, 'dsh-chat-import-convert')
+  assert.deepEqual(skills.map((s) => s.name), ['dsh-chat-import-convert', 'dsh-chat-import-usage'])
   assert.ok(skills[0].content.includes('"interchange": "dsh-chat-import"'))
+  // usage 指南是 import_chat 常驻 schema 的下沉目标：schema 里点名它，正文必须真的在场
+  assert.ok(skills[1].content.includes('import_chat'))
   // 缺席口径由其余所有用例覆盖：makeCtx({}) 无 skills 服务，apply 照常完成
 })
 

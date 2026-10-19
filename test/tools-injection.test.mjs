@@ -66,7 +66,7 @@ test("reconcile('full')：重注册全部 12 个；三档往返与历史 boolean
   assert.equal(toolCtx.registered.length, 49)
 })
 
-test('描述长度护栏：每个工具 description ≤ 500 字符，全量档常驻 payload ≤ 15k 字符', () => {
+test('描述长度护栏：每个工具 description ≤ 500 字符，全量档常驻 payload ≤ 12k 字符', () => {
   const defs = []
   const measuringCtx = {
     tools: {
@@ -76,7 +76,8 @@ test('描述长度护栏：每个工具 description ≤ 500 字符，全量档�
   }
   registerTools(measuringCtx, '.tools-guard-test')
   // 常驻上下文成本 = 工具级 description + 参数级 description 之和（模型按此付费）。
-  // 回肥护栏：细化行为说明请下沉到执行结果/错误文本（按需付费），而非膨胀 schema。
+  // 回肥护栏：细化行为说明请下沉到 docs/IMPORT-GUIDE.md（运行时 skill 按需加载）或
+  // 执行结果 / 错误文本（按需付费），而非膨胀 schema。
   let total = 0
   for (const def of defs) {
     const desc = (def.description || '').length
@@ -85,8 +86,12 @@ test('描述长度护栏：每个工具 description ≤ 500 字符，全量档�
     assert.ok(desc <= 500, `工具 ${def.name} description ${desc} 字符超过 500 上限（本次瘦身基线）`)
   }
   assert.equal(defs.length, 12)
-  // 上限随来源数量走：加一个来源（如 dsh4）本来就要多一行枚举说明。加入 dsh4 前
-  // payload 已是 14,995（离 15k 只差 5 字符），所以这次按新增来源的实际成本上调到 15.3k，
-  // 而不是把新来源的描述压成看不出来源差异的缩写。
-  assert.ok(total <= 15300, `全量档 payload ${total} 字符超过 15300 上限（加入 dsh4 前基线 ≈ 15.0k）`)
+  // import_chat 是唯一常驻（minimal 档）的工具，单独钉住：29 个来源的 path 形状表与参数长文
+  // 已下沉到指南，schema 只剩枚举、必填项与「调用必需」的一行说明（≈2.7k 字符）。
+  const importChat = defs.find((d) => d.name === 'import_chat')
+  const importChatSize = importChat.description.length + JSON.stringify(importChat.parameters).length
+  assert.ok(importChatSize <= 2800, `import_chat 常驻 ${importChatSize} 字符超过 2800 上限（下沉后基线 ≈2.7k）`)
+  // 上限随来源数量走：新增来源只该多一行枚举（≈12 字符）与 spec 派生的名单，不该多一段说明。
+  // 下沉前基线 ≈15.3k，下沉后 ≈11.3k；12k 给后续来源留了余量，同时挡住「说明回填 schema」。
+  assert.ok(total <= 12000, `全量档 payload ${total} 字符超过 12000 上限（下沉后基线 ≈11.3k）`)
 })
