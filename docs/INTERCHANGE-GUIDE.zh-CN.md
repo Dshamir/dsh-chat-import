@@ -1,25 +1,25 @@
 # Interchange 转换指南（给 Agent 的 Skill 指令）
 
-> 读者：要把一份「未识别」的对话记录转换成 dsh-chat-import 可导入格式的 Agent（或脚本作者）。
-> 本文自包含——完成转换不需要读其它文档。协议完整规范（各源能力矩阵 / 降级规则表 / 便携 bundle）
-> 见 [INTERCHANGE.md](INTERCHANGE.md)，本文只讲「怎么把任意格式转进来」。
+> 读者是要把一份「未识别」的对话记录，转成 dsh-chat-import 能导入的格式的 Agent，或脚本作者。
+> 本文是自包含的：完成转换不需要再读别的文档。完整的协议规范（各源能力矩阵、降级规则表、便携
+> bundle）在 [INTERCHANGE.md](INTERCHANGE.md)，本文只讲「怎么把任意格式转进来」。
 > English version: [INTERCHANGE-GUIDE.md](INTERCHANGE-GUIDE.md)
 
 ## 你的任务
 
-源文件是某个工具的对话导出，插件的全部解析器都不认识它。你要把它转换成一份
-**interchange v1 会话文档**（一个 JSON 文件），写入新文件，交还给用户重新导入。
+源文件是某个工具的对话导出，插件的所有解析器都不认识它。你要把它转成一份 **interchange v1
+会话文档**（一个 JSON 文件），写到新文件里，然后交回给用户重新导入。
 
 ## 产出要求（硬性）
 
-1. **严格 JSON**：`JSON.parse` 必须能过——无注释、无尾逗号、UTF-8 编码。
-2. 顶层对象必须含 `"interchange": "dsh-chat-import"` 且 `"version": 1`；
-   这对标记是探测的第一级判据，**必须出现在文件前 64KB 内**（放在文档最顶部即可）。
-3. `turns` 至少包含 1 个有效轮次。空轮（无 `prompt`、无 `steps`、无 `compaction`）
-   会被丢弃计数；全部轮次被丢弃 = 整个文件拒绝导入。
-4. **不虚构内容**：源文件里没有的（工具结果、时间戳、token 用量）宁可缺省，不要编造。
-5. **写新文件，不改源文件**。建议命名 `<源文件名>.interchange.json`。
-6. 时间戳一律用**毫秒**（Unix epoch ms）。
+1. **严格 JSON**：`JSON.parse` 必须能过。不能有注释，不能有尾逗号，编码用 UTF-8。
+2. 顶层的两个字段 `"interchange": "dsh-chat-import"` 与 `"version": 1` 必须存在。这对标记是探测的
+   第一级判据，**必须出现在文件前 64KB 内**（放在文档最顶部就行）。
+3. `turns` 至少有 1 个有效轮次。空轮指既没有 `prompt`、也没有 `steps`、也没有 `compaction` 的轮，
+   它们会被丢弃并计数；如果所有轮次都被丢掉，整个文件就拒绝导入。
+4. **不虚构内容**：源文件里没有的东西（工具结果、时间戳、token 用量）宁可省掉，也不要编。
+5. **写新文件，不改源文件**。建议命名为 `<源文件名>.interchange.json`。
+6. 时间戳一律用**毫秒**（Unix epoch 毫秒）。
 
 ## 最小合法文档
 
@@ -78,25 +78,27 @@
 | `model` | 可选 | 该步自己的模型（中途换模型时逐步骤记名） |
 | `usage` | 可选 | `{ "inputTokens", "outputTokens", "cacheReadTokens"?, "cacheWriteTokens"?, "reasoningTokens"? }`，全部非负整数 |
 
-**内容块类型**：`text`（`{ "type": "text", "text" }`）、`reasoning`（同形）、
+**内容块类型**：`text`（`{ "type": "text", "text" }`）、`reasoning`（形状相同）、
 `image`（见下）、`tool-call`（`{ "type": "tool-call", "id", "name", "arguments" }`）。
 
-工具结果不放进消息正文：写在该步的 `toolResults` 列表里
-（`{ "toolCallId", "content": [...], "isError"? }`）。写进同一步 `content` 的
-`tool-result` 块会被接受并归一进 `toolResults`（按 `toolCallId` 去重，显式列表优先）；
-但写在**其它位置**（`promptBlocks`、或结果内层 `content`）的结果块无处安放，会被丢弃并
-计入 `skippedBlocks`。未知块类型同样丢弃计数。
+工具结果不要放进消息正文，写在这一步的 `toolResults` 列表里
+（`{ "toolCallId", "content": [...], "isError"? }`）。
 
-**配对不变量**：每个 `toolResults[].toolCallId` 必须能在某一步的 `toolCalls` 里找到
-对应 `id`——找不到的结果会被**丢弃并计入 `droppedToolResults`**。反过来，有调用没结果
-不要紧（插件会兜底补空结果），但源里有结果就一定要配对写上。工具调用既可以写在
-`content` 里（`tool-call` 块），也可以写在显式 `toolCalls` 列表里；工具结果同样既可以
-写成 `tool-result` 内容块，也可以写在显式 `toolResults` 列表里。两种写法等价，按 id 去重
-（结果是按 `toolCallId`）。
+写进同一步 `content` 的 `tool-result` 块也能用：插件会把它归一进 `toolResults`，按 `toolCallId`
+去重，显式列表优先。但写在**其它位置**的结果块无处安放，会被丢弃并计入 `skippedBlocks`——比如
+`promptBlocks` 里，或者嵌套在另一个结果的 `content` 里。未知块类型同样丢弃并计数。
 
-**图片块**：带字节 `{ "type": "image", "data": "<base64>", "mediaType": "image/png", "name"? }`
-（mediaType 收 PNG/JPEG/WebP/GIF）。源里只有图片 URL 或本地路径时，读得到字节就转 base64；
-**拿不到字节就整块省略，不要伪造 `data`**——非法图片会降级为 `[image]` 占位文本并计入
+**配对不变量**：每个 `toolResults[].toolCallId` 都必须在某一步的 `toolCalls` 里找得到对应的
+`id`。找不到的结果会被**丢弃，并计入 `droppedToolResults`**。反过来是安全的：有调用、没结果不要紧，
+插件会兜底补一条空结果。但如果源里本来有结果，请一定配对写上。
+
+工具调用可以写成 `content` 里的 `tool-call` 块，也可以写进显式的 `toolCalls` 列表；工具结果同样
+可以写成 `tool-result` 内容块，或写进显式的 `toolResults` 列表。两种写法等价，都按 id 去重（结果
+按 `toolCallId`）。
+
+**图片块**：带字节的写法是 `{ "type": "image", "data": "<base64>", "mediaType": "image/png", "name"? }`，
+mediaType 认 PNG、JPEG、WebP、GIF。源里只有图片的 URL 或本地路径时，能读到字节就转成 base64；
+**读不到字节就整块省掉，不要伪造 `data`**。不合法的图片会降级成 `[image]` 占位文本，并计入
 `imagesDegraded`。
 
 ## 完整示例（工具调用 + 图片 + usage + compaction）
@@ -148,35 +150,34 @@
 
 ## 转换步骤
 
-1. 读源文件，识别每条消息的角色（用户 / 助手 / 工具）与顺序。
-2. 一条用户提问开一个 `turn`（`prompt`）；其后直到下一条用户提问之前的助手消息，
-   按顺序成为该轮的 `steps`。
-3. 助手消息里的工具调用与工具结果按 id 配对，放进**同一步**的 `toolCalls` / `toolResults`。
-4. 时间戳统一转毫秒；usage 数字取非负整数（不是整数就整条 `usage` 省略）。
-5. 写出 JSON 文件，过一遍下面的自检清单。
-6. 把新文件路径交给用户，提示重新预览并导入。
+1. 读源文件，识别每条消息的角色（用户、助手、工具）和它们的先后顺序。
+2. 一条用户提问开启一个 `turn`，写进 `prompt`。它之后、下一条用户提问之前的助手消息，按顺序
+   成为这一轮的 `steps`。
+3. 把工具调用和它们的结果按 id 配对，放进**同一个 step** 的 `toolCalls` 与 `toolResults`。
+4. 时间戳统一转成毫秒。usage 里的数字必须是非负整数，否则整条 `usage` 省略。
+5. 写出 JSON 文件，逐项过一遍下面的自检清单。
+6. 把新文件的路径交给用户，请他重新预览并导入。
 
 ## 自检清单（交付前逐项过）
 
-- [ ] `JSON.parse` 能通过（无注释、无尾逗号）
-- [ ] `"interchange": "dsh-chat-import"` 与 `"version": 1` 在文件最顶部
+- [ ] `JSON.parse` 能通过（没有注释、没有尾逗号）
+- [ ] `"interchange": "dsh-chat-import"` 和 `"version": 1` 在文件最顶部
 - [ ] 每个 `toolResults[].toolCallId` 都有配对的 `toolCalls[].id`
-- [ ] 没有空轮（每轮至少有 prompt / steps / compaction 之一）
-- [ ] `usage` 的 `inputTokens` / `outputTokens` 是非负整数
-- [ ] 所有时间戳是毫秒
+- [ ] 没有空轮（每一轮至少有 prompt、steps、compaction 之一）
+- [ ] `usage` 的 `inputTokens` 与 `outputTokens` 是非负整数
+- [ ] 所有时间戳都是毫秒
 - [ ] 没有虚构源文件里不存在的内容
 
 ## 导入与验证
 
-- **面板**：「从文件导入」粘贴新文件路径回车 → 只读预览。成功标志：
-  识别显示 `generic · 文件标记`，轮 / 消息 / 工具调用计数与源一致，降级计数
-  （畸形轮步 / 跳过块 / 丢弃工具结果 / 用量缺失 / 图片）全为 0 或可逐条解释。
-  确认后点「导入」。
+- **面板**：在「从文件导入」里粘贴新文件的路径并回车，得到一份只读预览。成功的标志是：识别结果
+  显示 `generic · 文件标记`；轮、消息、工具调用的计数与源一致；降级计数（畸形轮步、跳过块、丢弃
+  工具结果、用量缺失、图片）全是 0，或者每一条都能解释清楚。确认后点「导入」。
 - **命令**：`/import auto <路径>`（`local-jsonl` 同义）。
-- **工具**：`import_chat({ format: "local-jsonl", path })`（先 dry-run 预览再正式导入）。
+- **工具**：`import_chat({ format: "local-jsonl", path })`，先 dry-run 预览，再正式导入。
 
-如果预览显示「所有对话格式解析器全部解析失败」，展开失败清单看 `generic` 那行的原因——
-它直接指出文档哪里不合法（不是合法 JSON / 版本不符 / 没有可导入的轮次）。
+如果预览显示「所有对话格式解析器全部解析失败」，展开失败清单，看 `generic` 那一行的原因。它
+会直接指出文档哪里不合法：不是合法 JSON、版本不符，或者没有可导入的轮次。
 
 ## 常见错误 → 后果
 

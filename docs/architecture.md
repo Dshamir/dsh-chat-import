@@ -1,49 +1,48 @@
 # 架构决策记录
 
-本文件记录本仓库**为什么**是现在这个样子：每条决策写背景、决定、代价，以及什么情况下允许重审。
-操作手册看 README / docs，硬性规则看 AGENTS.md；本文件只管「权衡」。
+这份文件记录本仓库**为什么**是现在这个样子。每条决策写四样东西：背景、决定、代价，以及什么情况下允许重审。操作手册看 README 和 `docs/`，硬性规则看 `AGENTS.md`；这里只谈权衡。
 
-执行约束：
+执行上还有两条约束：
 
-- 任何重构/拆分方案若与本文件已记录的决策冲突，必须先修改对应条目、说明旧决策为何失效，再动手。禁止静默推翻。
-- 新决策追加在文末，编号递增，不删旧条目；被推翻的条目改为「已废弃 + 指向新决策」。
+- 任何重构或拆分方案，如果与这里已记录的决策冲突，必须先修改对应条目、说明旧决策为什么失效，然后才能动手。不允许静默推翻。
+- 新决策追加在文末，编号递增，旧条目不删。被推翻的条目改成「已废弃」，并指向新决策。
 
 ---
 
 ## D1. 零构建，纯 ESM，根目录即发布面
 
-- **背景**：插件逻辑是文本解析与宿主服务调用，没有需要编译期处理的东西；构建步骤只会增加发版事故面。
-- **决定**：`index.mjs` / `lib/` 即发布产物，源码即产物；根目录只放发布文件，本地工程文件收进 `dev/` 不入库。
-- **代价**：没有类型检查与转译，靠 eslint + node --test + 覆盖率护栏（line >= 75%）兜底。
-- **重审条件**：需要 TypeScript 类型契约对外发布、或需要支持旧 Node 之时。
-- **例外**：浏览器侧 bundle（lib/client.js）不适用本条，见 D7——宿主侧仍严格零构建。
+- **背景**：这个插件的逻辑就是文本解析加调用宿主服务，没有需要在编译期处理的东西。多一道构建，只会多一处发版事故的来源。
+- **决定**：`index.mjs` 与 `lib/` 就是发布产物，源码即产物。根目录只放发布文件，本地工程文件收进 `dev/`，不入库。
+- **代价**：没有类型检查，也没有转译，只能靠 eslint、`node --test` 和覆盖率护栏（line ≥ 75%）兜底。
+- **重审条件**：需要对外发布 TypeScript 类型契约，或者需要支持旧版 Node 时。
+- **例外**：浏览器侧的 bundle（`lib/client.js`）不适用本条，见 D7。宿主侧仍然严格零构建。
 
 ## D2. 会话日志 append-only 契约
 
-- **背景**：导入的会话要成为「可继续的 DSH 会话」，就必须遵守宿主 sessionPersistence 的存储契约；改写历史会破坏外部工具的续写假设。
-- **决定**：只 `create` + `append`，不改写历史；`seq` 从 0 连续；surface 事件带 `surfaceOp: 'append'`。
-- **代价**：纠错成本高（错了只能追加更正或 force 另建副本），所以转换层必须在写入前把输入清洗干净。
-- **重审条件**：宿主存储契约本身变更时。
+- **背景**：导入的会话要能成为「可继续的 DSH 会话」，就必须遵守宿主 `sessionPersistence` 的存储契约。改写历史会破坏外部工具对续写的假设。
+- **决定**：只做 `create` 和 `append`，不改写历史；`seq` 从 0 连续；surface 事件带 `surfaceOp: 'append'`。
+- **代价**：纠错成本高——写错了只能追加一条更正，或者用 force 另建副本。所以转换层必须在写入之前把输入清洗干净。
+- **重审条件**：宿主本身的存储契约变更时。
 
 ## D3. 纯函数转换层与 host 面严格分层
 
-- **背景**：来源有三十种（含 DSH 自己的两代会话日志），它们的解析逻辑是 bug 的重灾区，必须能脱离宿主单独测试。
-- **决定**：`lib/convert/*` 与 `lib/export/*` 是纯函数层：不读磁盘、不 import 宿主服务，文件头写清存储契约。host 面（发现、IO、宿主服务调用）在 `lib/*.mjs`；其中按来源命名的适配器（SQLite 读取、来源专属编排）收在 `lib/sources/<src>.mjs`，与 `lib/convert/<src>.mjs` 一一对应（2026-09 从 `lib/<src>.mjs` 平移收拢，只是路径变化）。新增来源的流水线固定走 AGENTS.md 的「新增一个来源」六步。
-- **代价**：同一来源有时要拆成 convert/<src>.mjs + lib/<src>.mjs 两个文件；层间数据形状要显式约定。
-- **重审条件**：无（这是测试能力的根基）。
+- **背景**：来源有三十种（含 DSH 自己的两代会话日志），这些解析逻辑是 bug 的重灾区，必须能脱离宿主单独测试。
+- **决定**：`lib/convert/*` 与 `lib/export/*` 是纯函数层：不读磁盘，不 import 宿主服务，文件头写清存储契约。host 面（发现、IO、调用宿主服务）放在 `lib/*.mjs`。其中按来源命名的适配器——SQLite 读取、来源专属编排——收在 `lib/sources/<src>.mjs`，与 `lib/convert/<src>.mjs` 一一对应（2026-09 从 `lib/<src>.mjs` 平移过来，只是换了路径）。新增来源固定走 `AGENTS.md` 里的「新增一个来源」六步。
+- **代价**：同一个来源有时要拆成 `convert/<src>.mjs` 和 `lib/<src>.mjs` 两个文件，层与层之间的数据形状也得显式约定。
+- **重审条件**：无。这是测试能力的根基。
 
 ## D4. 失败要大声，幂等是底线
 
-- **背景**：导入器面对的是别人的数据，畸形行、编码问题、疑似 secrets 是常态；静默吞掉会让用户以为导入成功。
-- **决定**：畸形行、疑似 secrets、降级项全部计数/上报；重复导入同一源时必须有确定答案而不是「看情况」（重导语义自 0.20.0 起由 D13 细化：未变跳过 / 未续聊续写 / 已续聊另建副本，`force: true` 恒另建副本）。
-- **代价**：上报通道（计数、警告列表）贯穿所有转换器签名，有点啰嗦——这是故意的。
+- **背景**：导入器面对的是别人的数据，畸形行、编码问题、疑似 secrets 都是常态。静默吞掉，用户就会以为导入成功了。
+- **决定**：畸形行、疑似 secrets、降级项全部计数并上报。重复导入同一个源时，必须给出确定的答案，不能「看情况」。重导语义从 0.20.0 起由 D13 细化：源没变就跳过，没被续聊就续写，已被续聊就另建副本，`force: true` 恒另建副本。
+- **代价**：计数与警告列表这条上报通道会贯穿所有转换器的签名，写起来有点啰嗦。这是故意的。
 - **重审条件**：无。
 
 ## D5. 数据库源自适应，不假设 schema
 
-- **背景**：外部工具（SQLite 存储的来源）版本间 schema 会漂移。
-- **决定**：`node:sqlite` 只读打开；列用 `PRAGMA table_info` 自适应；读不到返回 `null` 而不是抛。
-- **代价**：转换器要处理「列缺失」的降级路径，测试要用真实临时库造夹具。
+- **背景**：用 SQLite 存储的那些来源，schema 会随版本漂移。
+- **决定**：用 `node:sqlite` 只读打开；列信息用 `PRAGMA table_info` 自适应；读不到就返回 `null`，不抛异常。
+- **代价**：转换器要处理「某列缺失」的降级路径，测试也得用真实的临时库造夹具。
 - **重审条件**：无。
 
 ## D6. 已知体量热点与治理方向（2026-09 定）
@@ -271,10 +270,17 @@
 
 ## D19. opencode 双存储世代：按表分派读取，绝不两边都读（2026-10 定）
 
-- **背景**：opencode 2.x（npm `@opencode/cli`，命令仍是 `opencode` / `opencode2`）**沿用 V1 的 `opencode.db`**，但把会话搬到 `session_v2`、转录搬到 `session_message`；V1 的 `session`/`message`/`part` 只是 V1→V2 迁移的来源。实测（本机 opencode 2.0.21 对 V1 库跑一次 `session list`）：迁移后 `session` 4 行、`session_v2` 4 行、`message` 51 行、`session_message` 51 行——**旧行仍在库里**。只读 V1 三表会让 V2 原生会话凭空消失；两边都读会把同一会话导入两次。
-- **决定**：`readOpencodeDb` / `readOpencodeDbSummaries` 先按 `sqlite_master` 探测世代：有 `session_v2` → V2（`session_v2` + `session_message`，按 `seq` 升序），否则有 `session` → V1，两者都没有 → 大声报错（不返回空列表，否则面板显示的是「没有会话」而不是「库不认识」）。两代产出**同一形状**的中间 JSON，转换器 `lib/convert/opencode.mjs` 无世代分支；导入编排、DB 指纹短路径、`sessionIds` 过滤、registry 子表全部复用。压缩边界取「最近一条 `status='completed'` 的 compaction 行」——这正是 V2 自己的模型上下文口径（`session_message.seq >=` 该行的行才是模型可见内容），该行之前的轮进日志但不进模型上下文。
-- **代价**：V2 的压缩正文分 `summary` 与 `recent` 两个字段（V2 模型两段都看，见 `session/compaction.ts` 的 `<summary>` / `<recent-context>`），检查点正文因此是两段之和：比 V1 的「摘要 + 保留窗口仍以轮呈现」更粗（保留窗口变成文本），换来的是与源侧投影逐字一致。非 `completed` 的 compaction 行（running/failed）不是模型可见边界，正文按普通内容保留、绝不静默丢。V2 原生工具名（`shell`/`subagent`/`patch`、`path` 取代 `filePath`）按「未知名原样保留」处理，不新造 DSH 侧对照（迁移后的历史行里仍是 V1 名，两套都要能读）。
-- **重审条件**：opencode 再换存储世代（第三种表名/库）时按同一分派扩一项；V2 若开始删除 V1 三表，本决策无需改动（分派已覆盖）。反向导出（`export_chat({ format: 'opencode' })`）目前仍写 V1 `opencode import` 能吃的 JSON，V2 的 `session import` 契约未验证前不改。
+- **背景**：opencode 2.x（npm 包 `@opencode/cli`，命令仍然是 `opencode` 或 `opencode2`）**沿用 V1 的 `opencode.db`**，但把会话搬进了 `session_v2`，把转录搬进了 `session_message`。V1 的 `session`、`message`、`part` 三张表，只作为 V1→V2 迁移的来源存在。
+
+  本机实测（opencode 2.0.21，对 V1 的库跑一次 `session list`）：迁移之后 `session` 4 行、`session_v2` 4 行、`message` 51 行、`session_message` 51 行，**旧行仍然留在库里**。所以只读 V1 三表，V2 原生的会话就会凭空消失；两边都读，同一个会话又会被导入两次。
+- **决定**：`readOpencodeDb` 与 `readOpencodeDbSummaries` 先查 `sqlite_master` 探测世代。有 `session_v2` 就是 V2，读 `session_v2` 加 `session_message`，按 `seq` 升序；否则有 `session` 就是 V1。两者都没有就大声报错——不返回空列表，否则面板显示的是「没有会话」，而不是「这个库不认识」。
+
+  两代产出**同一形状**的中间 JSON，转换器 `lib/convert/opencode.mjs` 不按世代分支。导入编排、DB 指纹短路径、`sessionIds` 过滤、registry 子表，全部复用同一套。压缩边界取「最近一条 `status='completed'` 的 compaction 行」：这正是 V2 自己的模型上下文口径，`session_message.seq` 大于等于该行的行才是模型可见内容。该行之前的轮照常进日志，但不进模型上下文。
+- **代价**：
+  - V2 的压缩正文分成 `summary` 和 `recent` 两个字段，V2 的模型两段都看（见 `session/compaction.ts` 的 `<summary>` 与 `<recent-context>`）。检查点正文因此是两段之和。这比 V1「摘要 + 保留窗口仍以轮呈现」要粗，保留窗口变成了纯文本，换来的是与源侧投影逐字一致。
+  - 非 `completed` 的 compaction 行（running、failed）不是模型可见的边界，正文按普通内容保留，绝不静默丢弃。
+  - V2 原生的工具名（`shell`、`subagent`、`patch`，以及用 `path` 取代 `filePath`）按「未知名原样保留」处理，不新造 DSH 侧的对照。迁移之后的历史行里仍然是 V1 的名字，所以两套都得能读。
+- **重审条件**：opencode 再换存储世代（出现第三种表名或库）时，按同一套分派再加一项。V2 如果开始删除 V1 三表，这条决策不用改，分派已经覆盖了。反向导出（`export_chat({ format: 'opencode' })`）目前仍写 V1 `opencode import` 能读的 JSON；V2 的 `session import` 契约验证通过之前不改。
 
 ---
 
