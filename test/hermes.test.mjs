@@ -615,3 +615,32 @@ test('readHermesDb → convertHermesJson: OpenAI 嵌套 tool_calls + tool_call_i
   assert.equal(out.events.find((e) => e.type === 'tool/call').data.arguments, '{"query":"余额"}')
   assert.equal(out.events.filter((e) => e.type === 'tool/result').length, 1)
 })
+
+test('readHermesDb: 正文为 NULL 的纯工具调用行保留（OpenAI 形状），无正文且无调用的行仍跳过', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-hermes-nocontent-'))
+  const dbPath = join(dir, 'state.db')
+  const db = new DatabaseSync(dbPath)
+  db.exec('CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, cwd TEXT, started_at REAL)')
+  db.exec('CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, tool_calls TEXT, tool_call_id TEXT, timestamp REAL)')
+  db.prepare('INSERT INTO sessions (id, title, cwd, started_at) VALUES (?, ?, ?, ?)').run('nc', '纯工具调用', '/tmp/nc', 1)
+  const ins = db.prepare('INSERT INTO messages (session_id, role, content, tool_calls, tool_call_id, timestamp) VALUES (?, ?, ?, ?, ?, ?)')
+  ins.run('nc', 'user', '跑两条命令', null, null, 1)
+  // OpenAI 形状的纯工具调用轮次：正文为 NULL，只有 tool_calls
+  ins.run('nc', 'assistant', null, JSON.stringify([
+    { id: 'call_n1', type: 'function', function: { name: 'terminal', arguments: '{"command":"ls"}' } },
+    { id: 'call_n2', type: 'function', function: { name: 'terminal', arguments: '{"command":"pwd"}' } },
+  ]), null, 2)
+  ins.run('nc', 'tool', 'a.txt', null, 'call_n1', 3)
+  ins.run('nc', 'tool', '/tmp/nc', null, 'call_n2', 4)
+  ins.run('nc', 'assistant', '', null, null, 5) // 空正文且无工具调用：仍按空消息跳过
+  db.close()
+
+  const [s] = readHermesDb(dbPath)
+  assert.equal(s.messages.length, 4)
+  assert.equal(s.messages[1].content, undefined)
+  assert.equal(s.messages[1].toolCalls.length, 2)
+  const out = convertHermesJson(JSON.stringify(s), { sourcePath: dbPath })
+  assertBalanced(out)
+  assert.equal(out.toolCalls, 2)
+  assert.equal(out.droppedToolResults, 0)
+})
