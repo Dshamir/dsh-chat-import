@@ -46,3 +46,12 @@ test('import_local_jsonl 自动识别 Qoder CLI transcript', async () => {
   assert.equal(out.title, '示例会话')
   assert.equal(out.turns.length, 1)
 })
+
+// Qoder CN 的数据根与 intl 根只差目录名，路径特征同样要认出它（否则 CN 会话落到
+// 全长候选列表里靠内容试跑，来源报不准）。
+test('import_local_jsonl 路径特征认 Qoder CN 数据根', async () => {
+  const raw = loadFixture('qoder-simple.jsonl')
+  const out = convertLocalJsonl(raw, { sourcePath: '/home/u/.qoder-cn/projects/-home-u-demo/qoder-simple.jsonl' })
+  assert.equal(out.detectedFormat, 'qoder')
+  assert.equal(out.turns.length, 1)
+})

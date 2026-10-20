@@ -36,6 +36,13 @@ test('defaultRoots：键集合与 FORMATS 一致（每个来源恰有一个描�
   assert.equal(new Set(FORMATS).size, FORMATS.length)
 })
 
+// Qoder CN 与 intl 是同产品两版发行（各自独立安装与数据根），transcript 同格式：共用一个
+// format、两个根并列，不另立来源（对齐 trae 一并覆盖 Trae CN 的做法）。
+test('defaultRoots：qoder 并列 intl 与 CN 两个数据根', () => {
+  const roots = defaultRoots({ home: HOME, env: {} })
+  assert.deepEqual(roots.qoder, [join(HOME, '.qoder', 'projects'), join(HOME, '.qoder-cn', 'projects')])
+})
+
 test('defaultRoots：env 注入（不读 process.env）——DSH_HOME / GROK_HOME / CONTINUE_GLOBAL_DIR / CLINE_*', () => {
   const env = {
     DSH_HOME: join(HOME, 'harness'),
@@ -110,6 +117,7 @@ test('fileFormatsForPath：独占 / 多候选 / 扩展名兜底', () => {
     ['/h/.hermes/state.db', ['hermes']],
     ['/h/.codex/sessions/2026/09/14/rollout-2026-09-14T10-54-33-x.jsonl', ['codex']],
     ['/h/.qoder/projects/p/s.jsonl', ['qoder']],
+    ['/h/.qoder-cn/projects/p/s.jsonl', ['qoder']],
     ['/tmp/random/export.jsonl', ['claude', 'codex', 'cursor', 'reasonix', 'openclaw', 'hermes']],
     ['/tmp/random/export.json', ['gemini', 'chatgpt']],
     ['/tmp/random/other.db', ['opencode', 'zcode', 'hermes']],

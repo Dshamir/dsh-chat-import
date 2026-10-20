@@ -34,7 +34,7 @@ database → one session; a directory → batch. Root shapes:
 | `pi` | Pi session JSONL (~/.pi/agent/sessions) |
 | `omp` | oh-my-pi session JSONL (~/.omp/agent/sessions) |
 | `kimi` | Kimi CLI / Kimi Code session directory (wire.jsonl + state.json) |
-| `qoder` | Qoder CLI session JSONL (~/.qoder/projects) |
+| `qoder` | Qoder CLI session JSONL (~/.qoder/projects / ~/.qoder-cn/projects) |
 | `workbuddy` | WorkBuddy session JSONL (~/.workbuddy/projects) |
 | `qwen` | Qwen Work CN (千问办公) session JSONL (~/.qwenworkcn/projects) |
 | `trae` | Trae Work state.vscdb (Trae/User/workspaceStorage or globalStorage) |

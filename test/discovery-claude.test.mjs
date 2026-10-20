@@ -186,6 +186,39 @@ test('qoder：~/.qoder/projects 发现、ai-title 标题、cwd 项目名、subag
   assert.equal(s.lastActiveAt, 1786000002000)
 })
 
+// Qoder CN（国内发行版，数据根 ~/.qoder-cn）与 intl 版 transcript 逐字同格式：不另立
+// format，只多一个根。这里锁住 CN 根的发现，以及两版之外的路径仍然自拒。
+test('qoder CN：~/.qoder-cn/projects 同 format 一并发现；非 qoder 布局仍自拒', async () => {
+  const root = join(HOME, '.qoder-cn', 'projects')
+  const proj = join(root, 'D--DSH-demo')
+  const sid = 'sess-qcn'
+  const f = join(proj, sid + '.jsonl')
+  const files = new Map([
+    [root, { type: 'dir' }],
+    [proj, { type: 'dir' }],
+    [f, { type: 'file', mtimeMs: 1786000003000, text: [
+      j({ sessionId: sid, type: 'user', cwd: 'D:\\DSH\\demo', timestamp: '2026-01-02T03:04:05.000Z', message: { role: 'user', content: 'CN 版的提问' } }),
+      j({ sessionId: sid, type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: '好' }] } }),
+      j({ type: 'ai-title', aiTitle: 'CN 标题', sessionId: sid }),
+    ].join('\n') }],
+  ])
+  const host = memoryHost(files)
+
+  const { sessions, total } = await discoverSessions({ path: root, format: 'qoder', host, imports: {} })
+  assert.equal(total, 1)
+  const s = sessions[0]
+  assert.equal(s.format, 'qoder') // 同产品两版发行共用一个来源
+  assert.equal(s.sessionId, sid)
+  assert.equal(s.title, 'CN 标题')
+  assert.equal(s.project, 'demo') // 记录内 cwd basename
+  assert.equal(s.cwd, 'D:\\DSH\\demo')
+  assert.equal(s.lastActiveAt, 1786000003000)
+
+  // 路径自拒：既不是 ~/.qoder/projects 也不是 ~/.qoder-cn/projects
+  const elsewhere = await discoverSessions({ path: join(HOME, 'elsewhere'), format: 'qoder', host, imports: {} })
+  assert.equal(elsewhere.total, 0)
+})
+
 test('workbuddy：~/.workbuddy/projects 发现、user_query 标题、cwd 项目名、路径自拒', async () => {
   const root = join(HOME, '.workbuddy', 'projects')
   const proj = join(root, 'project-hash-1')
