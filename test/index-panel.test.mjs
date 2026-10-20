@@ -63,6 +63,21 @@ test('REQ-41 apply 注册 webServer 路由（POST /api-import/sessions + /api-im
   assert.equal(registered.length, 12)
 })
 
+// 面板路由必须经 effect 登记：webServer.register 只返回 disposer，不像 harness 注册表
+//（tools / commands / skills）那样自动附着到调用插件上。漏挂 effect → 插件卸载（含保存
+// lib/*.mjs 即重载的 HMR）后路由仍留在服务器上，重载时重复 (kind, path) 抛错、注册中断，
+// 面板从此由旧实例的已 dispose ctx 接管，每个请求都回
+// 「cannot get required service "fs" in inactive context」。
+test('apply 的面板路由经 effect 登记：卸载时全部撤销，不给重载留僵尸路由', () => {
+  const { ctx, webRoutes, effects } = makeCtx({})
+  apply(ctx)
+  // /sessions /import /history /purge /workspaces/cleanup /file /upload/{init,chunk,complete} /uploads /prefs
+  assert.equal(webRoutes.length, 11)
+  assert.ok(effects.length > 0, '路由注册挂在 effect 上')
+  for (const dispose of effects) dispose()
+  assert.equal(webRoutes.length, 0, '卸载后不残留路由（残留会让重载时的重复注册抛错）')
+})
+
 test('REQ-41 webServer 可选：headless（无 webServer）apply 不抛错、12 工具照常注册、无路由', () => {
   const { ctx, webRoutes, registered } = makeCtx({}, { noWebServer: true })
   apply(ctx)

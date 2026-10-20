@@ -319,7 +319,15 @@ export function makeRegistrar() {
   const defs = []
   return {
     defs,
-    register(def) { defs.push(def); return () => {} },
+    // 真实注册表（webServer.register 等）返回撤销本次注册的 disposer；测试替身同样返回可用的
+    // disposer（原先返回空函数，使「卸载时是否撤销」这类契约在测试里无法验证、也无人发现）。
+    register(def) {
+      defs.push(def)
+      return () => {
+        const i = defs.indexOf(def)
+        if (i >= 0) defs.splice(i, 1)
+      }
+    },
     find: (name) => defs.find((d) => d.name === name),
   }
 }
@@ -342,6 +350,8 @@ export function makeCtx(tree = {}, opts = {}) {
   const { tools, registered, active } = makeTools()
   const web = makeRegistrar()
   const listeners = new Map()
+  // ctx.effect 登记的 disposer（用例可调用它们模拟插件卸载，见 effect 实现）
+  const effects = []
 
   const ctx = {
     fs,
@@ -371,7 +381,17 @@ export function makeCtx(tree = {}, opts = {}) {
       listeners.set(event, list)
       return () => {}
     },
-    effect() { return () => {} },
+    effect(fn) {
+      // 真实 ctx.effect 在登记时立即执行 effect 主体、卸载时调用它返回的 disposer；替身同样
+      // 立即执行（空操作会让「把注册包进 effect」的代码在测试里静默不执行），并把 disposer
+      // 记进 effects 供用例模拟卸载。
+      const disposer = typeof fn === 'function' ? fn() : undefined
+      if (typeof disposer === 'function') {
+        effects.push(disposer)
+        return disposer
+      }
+      return () => {}
+    },
   }
   for (const name of PROPERTY_SERVICES) {
     if (services[name] !== undefined) ctx[name] = services[name]
@@ -382,6 +402,7 @@ export function makeCtx(tree = {}, opts = {}) {
     persistence,
     registered,
     active,
+    effects,
     attached: workspaceRegistry && workspaceRegistry.attached,
     workspaces: workspaceRegistry && workspaceRegistry.workspaces,
     webRoutes: web.defs,
