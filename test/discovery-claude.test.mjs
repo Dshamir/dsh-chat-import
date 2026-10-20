@@ -5,7 +5,7 @@ import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { discoverSessions, clearScanCache, clearInflightScans } from '../lib/discovery.mjs'
-import { memoryHost } from './_support/discovery-host.mjs'
+import { memoryHost, withDirs } from './_support/discovery-host.mjs'
 import { FAKE_HOME as HOME, j } from './_support/discovery-host.mjs'
 
 beforeEach(() => {
@@ -184,6 +184,27 @@ test('qoder：~/.qoder/projects 发现、ai-title 标题、cwd 项目名、subag
   assert.equal(s.project, 'demo') // 记录内 cwd basename
   assert.equal(s.cwd, '/home/u/demo')
   assert.equal(s.lastActiveAt, 1786000002000)
+})
+
+test('qoder：标题载体只在尾部窗口也能取到（last-prompt 追加在长会话末尾）', async () => {
+  const root = join(HOME, '.qoder', 'projects')
+  const proj = join(root, '-home-u-long')
+  const sid = 'sess-qlong'
+  // 头窗（256KB）里没有可用标题：首条 user 只有注入信封、没有 ai-title；唯一的 last-prompt
+  // 落在尾部。修前只能给 null（面板显示无标题），修后应与导入侧取到同一个标题。
+  const filler = 'x'.repeat(300 * 1024)
+  const text = [
+    j({ sessionId: sid, type: 'user', cwd: '/home/u/long', timestamp: '2026-01-02T03:04:05.000Z', message: { role: 'user', content: '<system-reminder>注入</system-reminder>' } }),
+    j({ sessionId: sid, type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: filler }] } }),
+    j({ sessionId: sid, type: 'last-prompt', lastPrompt: '尾部的最后提问' }),
+  ].join('\n')
+  const files = withDirs(root, new Map([[join(proj, sid + '.jsonl'), { type: 'file', mtimeMs: 1786000004000, text }]]))
+  const host = memoryHost(files)
+
+  const { sessions } = await discoverSessions({ path: root, format: 'qoder', host, imports: {} })
+  assert.equal(sessions.length, 1)
+  assert.equal(sessions[0].title, '尾部的最后提问')
+  assert.ok(host.counters.tails > 0) // 真的读了尾段，而不是靠头段蒙对
 })
 
 // Qoder CN（国内发行版，数据根 ~/.qoder-cn）与 intl 版 transcript 逐字同格式：不另立
