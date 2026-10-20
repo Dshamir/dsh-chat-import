@@ -2,37 +2,39 @@
 
 All notable changes to `dsh-chat-import` are documented here, newest first.
 
-## [Unreleased]
+## [0.26.2] - 2026-10-19
 
-[中文](#cn-unreleased) | [English](#en-unreleased)
+[中文](#cn-0.26.2) | [English](#en-0.26.2)
 
-<h3 id="cn-unreleased">新增功能</h3>
+<h3 id="cn-0.26.2">新增功能</h3>
 
 - **新增 oh-my-pi（omp）对话导入源**：`import_chat({ format: "omp", path })` 与面板「导入会话」都能导入 omp 的会话（默认根 `~/.omp/agent/sessions`，一条会话一个 JSONL）。按 omp 的存储契约读：首行**定宽 256 字节的标题槽**作标题（旧文件没有槽时回退 `header.title`、再回退 `title_change`）、会话头取 id/时间/cwd、`id`/`parentId` 树只重建活动分支；`message` 的 camelCase 角色（`user` / `assistant` / `toolResult` / `bashExecution` / `pythonExecution` / `fileMention`）、`toolCall` 块（`arguments` 对象）、压缩条目（`firstKeptEntryId` 定保留窗口）按源自身 `convertToLlm` 的口径转换，压缩摘要默认导入为原生压缩检查点。`/clear` 的 `reset_boundary` 是纯标记、没有摘要载荷：与 Kimi「只有边界没有摘要」同口径，最后一次清空点之前的内容不进日志，结果里显式上报 `resetBoundaries: <N>`（不静默），`fullHistory: true` 保留全量——该开关进参数指纹。转换实现与 pi 共用同一引擎（`lib/convert/pi-family.mjs`），两个来源只保留各自的差异描述。
 - **工具结果新增两个降级计数**：`resetBoundaries`（omp 的 `/clear` 次数，见上）与 `droppedInjected`（无轮可挂的注入消息数：bash / python 执行活动）。后者此前在 pi 上叫 `droppedBash` 且**没有在输出 schema 里声明**，被宿主的输出校验丢掉、用户看不到——现已声明并随结果透出。
 
-<h3 id="cn-unreleased">体验优化</h3>
+<h3 id="cn-0.26.2">体验优化</h3>
 
-- **`import_chat` 的常驻 schema 瘦身 59%，长文改由运行时 skill 按需加载**：schema 只留一次调用需要的东西——format 枚举、必填 `path`，以及「默认值会改变结果」的那几个参数各一行说明；29 个来源的 path 形状表、完整参数详解与重导规则下沉到 `docs/IMPORT-GUIDE.md`，并注册为宿主运行时 skill `dsh-chat-import-usage`（`import_chat` 的 description 点名它，模型在真要导入前加载一次）。口径是宿主真正发给模型的部分（name + description + parameters；`output.schema` 不上线、不计费），本机实测：`import_chat` 常驻 1633 → 663 tokens，全量 12 个工具 3720 → 2762 tokens；技能目录多出的一行约 46 tokens，故精简档净省约 0.9k/轮。设置页「精简档省多少」原先写的约 4.5k 有误，按同口径修正为约 2.1k；「关闭注入」的约 5k 修正为约 2.8k。**22 个参数一个没少**（全部保留声明，只是说明搬到了按需付费的地方）；`docs/USAGE*.md` 与中英两份 README 的文档表同步。
+- **`import_chat` 的常驻 schema 瘦身 59%，长文改由运行时 skill 按需加载**：schema 只留一次调用需要的东西——format 枚举、必填 `path`，以及「默认值会改变结果」的那几个参数各一行说明；30 个来源的 path 形状表、完整参数详解与重导规则下沉到 `docs/IMPORT-GUIDE.md`，并注册为宿主运行时 skill `dsh-chat-import-usage`（`import_chat` 的 description 点名它，模型在真要导入前加载一次）。口径是宿主真正发给模型的部分（name + description + parameters；`output.schema` 不上线、不计费），本机实测：`import_chat` 常驻 1633 → 663 tokens，全量 12 个工具 3720 → 2762 tokens；技能目录多出的一行约 46 tokens，故精简档净省约 0.9k/轮。设置页「精简档省多少」原先写的约 4.5k 有误，按同口径修正为约 2.1k；「关闭注入」的约 5k 修正为约 2.8k。**22 个参数一个没少**（全部保留声明，只是说明搬到了按需付费的地方）；`docs/USAGE*.md` 与中英两份 README 的文档表同步。
 - **常驻成本进护栏，防止说明重新长回 schema**：`test/tools-injection.test.mjs` 的全量档 payload 上限从 15.3k 收紧到 12k，并单独钉住 `import_chat` ≤ 2.8k 字符；新增 `test/import-guide.test.mjs` 守住三条——指南的来源表与代码里的来源表逐字一致（中英两份）、每个声明的参数在指南里都有条目、schema 不再携带来源 path 形状表。
 
-<h3 id="cn-unreleased">其他变更</h3>
+<h3 id="cn-0.26.2">其他变更</h3>
 
 - **发布流程移入 CI**：发布不再在本地执行 `npm publish` / `gh release`。推送 `v*` tag 后，`.github/workflows/release.yml` 校验 tag 与 `package.json` 版本一致、tag 提交在 `main` 上、CHANGELOG 版本节版式正确（`scripts/release-notes.mjs`），跑完全部门禁后以 trusted publishing + provenance 发布到 npm，并用同一版本节建 / 更新 GitHub Release；重跑会跳过 npm 上已有的版本。手动 `workflow_dispatch` 只校验、不发布。
 
-<h3 id="en-unreleased">New Features</h3>
+<h3 id="en-0.26.2">New Features</h3>
 
 - **New import source: oh-my-pi (omp)**: `import_chat({ format: "omp", path })` and the Import Sessions panel both import omp sessions (default root `~/.omp/agent/sessions`, one JSONL per session). It follows omp's storage contract: the first line is a **fixed-width 256-byte title slot** used as the title (legacy files without it fall back to `header.title`, then `title_change`), the session header supplies id/time/cwd, and the `id`/`parentId` tree is rebuilt for the active branch only. The camelCase `message` roles (`user` / `assistant` / `toolResult` / `bashExecution` / `pythonExecution` / `fileMention`), `toolCall` blocks (`arguments` objects) and compaction entries (`firstKeptEntryId` marks the kept window) convert on the source's own `convertToLlm` terms, and compaction summaries become native DSH compaction checkpoints by default. `/clear`'s `reset_boundary` is a pure marker with no summary payload: by the same rule as Kimi's summary-less wire, content before the last clear point does not enter the log and the result reports `resetBoundaries: <N>` explicitly (never silently), while `fullHistory: true` keeps everything — that flag is part of the args fingerprint. Conversion shares one engine with pi (`lib/convert/pi-family.mjs`); each source keeps only its own differences.
 - **Two conversion counters added to tool results**: `resetBoundaries` (omp `/clear` count, above) and `droppedInjected` (injected messages with no step to attach to: bash / python execution activity). The latter was previously `droppedBash` on pi and **not declared in the output schema**, so the host's output validation dropped it and users never saw it — it is now declared and reported.
 
-<h3 id="en-unreleased">Improvements</h3>
+<h3 id="en-0.26.2">Improvements</h3>
 
-- **`import_chat`'s resident schema is 59% smaller; the long form now loads on demand as a runtime skill**: the schema keeps only what a call needs — the format enum, the required `path`, and a one-line note for the parameters whose default would otherwise change the result. The 29-source path table, the full parameter reference and the re-import rules moved into `docs/IMPORT-GUIDE.md`, registered as the host runtime skill `dsh-chat-import-usage` (named by `import_chat`'s description, loaded once before an import actually happens). Measured on what the host really sends to the model (name + description + parameters; `output.schema` never reaches the model and is not billed): `import_chat` 1633 → 663 tokens resident, all 12 tools 3720 → 2762 tokens; the extra skill-catalog line costs ~46 tokens, so Minimal nets ~0.9k saved per request. The settings page's "Minimal saves ~4.5k" was wrong and is corrected to ~2.1k on the same basis; "Off saves ~5k" is corrected to ~2.8k. **All 22 parameters are still declared** — only their explanations moved to where they are paid for on demand; `docs/USAGE*.md` and both README doc tables follow.
+- **`import_chat`'s resident schema is 59% smaller; the long form now loads on demand as a runtime skill**: the schema keeps only what a call needs — the format enum, the required `path`, and a one-line note for the parameters whose default would otherwise change the result. The 30-source path table, the full parameter reference and the re-import rules moved into `docs/IMPORT-GUIDE.md`, registered as the host runtime skill `dsh-chat-import-usage` (named by `import_chat`'s description, loaded once before an import actually happens). Measured on what the host really sends to the model (name + description + parameters; `output.schema` never reaches the model and is not billed): `import_chat` 1633 → 663 tokens resident, all 12 tools 3720 → 2762 tokens; the extra skill-catalog line costs ~46 tokens, so Minimal nets ~0.9k saved per request. The settings page's "Minimal saves ~4.5k" was wrong and is corrected to ~2.1k on the same basis; "Off saves ~5k" is corrected to ~2.8k. **All 22 parameters are still declared** — only their explanations moved to where they are paid for on demand; `docs/USAGE*.md` and both README doc tables follow.
 - **Resident cost is now guarded so explanations cannot creep back into the schema**: the full-surface payload ceiling in `test/tools-injection.test.mjs` tightened from 15.3k to 12k, plus a dedicated `import_chat` ≤ 2.8k ceiling; the new `test/import-guide.test.mjs` holds three lines — the guide's source table matches the code's table verbatim (both languages), every declared parameter has a guide entry, and the schema no longer carries the per-format path table.
 
-<h3 id="en-unreleased">Chores</h3>
+<h3 id="en-0.26.2">Chores</h3>
 
 - **Releases now run in CI**: publishing no longer happens locally (`npm publish` / `gh release`). Pushing a `v*` tag makes `.github/workflows/release.yml` check that the tag names `package.json`'s version and sits on `main`, validate the CHANGELOG section (`scripts/release-notes.mjs`), run the full gate set, publish to npm with trusted publishing and provenance, and create or update the GitHub Release from the same section; reruns skip a version already on npm. A manual `workflow_dispatch` validates without publishing.
+
+**Full Changelog**: [v0.26.1...v0.26.2](https://github.com/Nwflower/dsh-chat-import/compare/v0.26.1...v0.26.2)
 
 ## [0.26.1] - 2026-10-17
 
