@@ -10,7 +10,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { convertHermesJson } from '../lib/convert/hermes.mjs'
+import { convertHermesJson, normalizeHermesToolCalls } from '../lib/convert/hermes.mjs'
 import { SESSION_FORMAT_VERSION } from '../lib/convert/core.mjs'
 import { readHermesDb } from '../lib/sources/hermes.mjs'
 import { openSqliteFixture, tempDbPath } from './_support/tmp-db.mjs'
@@ -505,4 +505,113 @@ test('readHermesDb → convertHermesJson: 变体 DB 全链路平衡（tool_calls
   assert.equal(out.skipped, 0)
   assert.equal(out.toolCalls, 1)
   assertBalanced(out)
+})
+
+// ── OpenAI 形状的 Hermes 变体（issue #88）───────────────────────────────────────
+// 该变体把 tool_calls 存成 OpenAI 嵌套形状（function.name / function.arguments），
+// 工具结果存成独立 role:"tool" 行（tool_call_id 关联）。此前两种形状都被静默丢弃。
+
+test('normalizeHermesToolCalls: 顶层 name/input 与 OpenAI 嵌套 function.* 归一，参数字符串原样', () => {
+  const nested = normalizeHermesToolCalls(JSON.stringify([
+    { id: 'call_a', type: 'function', function: { name: 'web_search', arguments: '{"q":"x"}' } },
+    { id: 'call_b', call_id: 'call_b', type: 'function', function: { name: 'terminal', arguments: '{"cmd":"ls"}' } },
+    { type: 'function', function: { name: 'no_id', arguments: '{}' } },
+    { id: 'call_c' },
+  ]))
+  assert.deepEqual(nested, [
+    { id: 'call_a', name: 'web_search', input: '{"q":"x"}' },
+    { id: 'call_b', name: 'terminal', input: '{"cmd":"ls"}' },
+  ])
+  // 既有 hermes-agent 形状不受影响
+  assert.deepEqual(normalizeHermesToolCalls([{ id: 'c1', name: 'bash', input: { command: 'ls' } }]), [
+    { id: 'c1', name: 'bash', input: { command: 'ls' } },
+  ])
+  assert.equal(normalizeHermesToolCalls('not json'), undefined)
+  assert.equal(normalizeHermesToolCalls([]), undefined)
+})
+
+test('convertHermesJson: OpenAI 嵌套 tool_calls + role:"tool" 行成对挂回，arguments 不二次编码', () => {
+  const raw = JSON.stringify({
+    id: 'hm-openai',
+    title: 'OpenAI 形状',
+    cwd: '/tmp/demo',
+    createdAt: 1,
+    messages: [
+      { role: 'user', content: '查一下', ts: 1 },
+      {
+        role: 'assistant',
+        content: '开工',
+        ts: 2,
+        toolCalls: [
+          { id: 'call_1', name: 'web_search', input: '{"query":"dsh"}' },
+          { id: 'call_2', name: 'terminal', input: '{"command":"ls"}' },
+        ],
+      },
+      { role: 'tool', content: '结果一', toolCallId: 'call_1', ts: 3 },
+      { role: 'tool', content: '结果二', toolCallId: 'call_2', ts: 4 },
+      { role: 'tool', content: '孤儿结果', toolCallId: 'call_gone', ts: 5 },
+      { role: 'assistant', content: '收工', ts: 6 },
+    ],
+  })
+  const out = convertHermesJson(raw)
+  assertBalanced(out)
+  assert.equal(out.toolCalls, 2)
+  assert.equal(out.droppedToolResults, 1) // 无对应调用的结果行不静默吞
+  const calls = out.events.filter((e) => e.type === 'tool/call')
+  assert.deepEqual(calls.map((e) => e.data.arguments), ['{"query":"dsh"}', '{"command":"ls"}'])
+  const results = out.events.filter((e) => e.type === 'tool/result')
+  assert.equal(results.length, 2)
+  assert.equal(results[0].data.message.content[0].toolCallId, 'call_1')
+  assert.deepEqual(results[0].data.message.content[0].content, [{ type: 'text', text: '结果一' }])
+})
+
+test('convertHermesJson: JSONL 记录里的 message.tool_calls（OpenAI 嵌套）+ tool 行', () => {
+  const raw = [
+    JSON.stringify({ type: 'session', id: 's-openai', title: 'JSONL 工具调用' }),
+    JSON.stringify({ type: 'message', message: { role: 'user', content: '跑个命令' }, timestamp: 1 }),
+    JSON.stringify({
+      type: 'message',
+      message: {
+        role: 'assistant',
+        content: '好',
+        tool_calls: [{ id: 'call_x', type: 'function', function: { name: 'terminal', arguments: '{"command":"pwd"}' } }],
+      },
+      timestamp: 2,
+    }),
+    JSON.stringify({ type: 'message', message: { role: 'tool', content: '/tmp', tool_call_id: 'call_x' }, timestamp: 3 }),
+    JSON.stringify({ type: 'message', message: { role: 'assistant', content: '在 /tmp' }, timestamp: 4 }),
+  ].join('\n') + '\n'
+  const out = convertHermesJson(raw)
+  assertBalanced(out)
+  assert.equal(out.toolCalls, 1)
+  const call = out.events.find((e) => e.type === 'tool/call')
+  assert.equal(call.data.arguments, '{"command":"pwd"}')
+  const result = out.events.find((e) => e.type === 'tool/result')
+  assert.equal(result.data.message.content[0].toolCallId, 'call_x')
+})
+
+test('readHermesDb → convertHermesJson: OpenAI 嵌套 tool_calls + tool_call_id 列全链路', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-hermes-openai-'))
+  const dbPath = join(dir, 'state.db')
+  const db = new DatabaseSync(dbPath)
+  db.exec('CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, cwd TEXT, started_at REAL)')
+  db.exec('CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, tool_calls TEXT, tool_name TEXT, tool_call_id TEXT, reasoning TEXT, timestamp REAL)')
+  db.prepare('INSERT INTO sessions (id, title, cwd, started_at) VALUES (?, ?, ?, ?)').run('oa', 'OpenAI 形状', '/tmp/oa', 1)
+  const ins = db.prepare('INSERT INTO messages (session_id, role, content, tool_calls, tool_name, tool_call_id, reasoning, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+  ins.run('oa', 'user', '查余额', null, null, null, null, 1)
+  ins.run('oa', 'assistant', '查一下', JSON.stringify([
+    { id: 'call_q', call_id: 'call_q', response_item_id: 'fc_q', type: 'function', function: { name: 'web_search', arguments: '{"query":"余额"}' } },
+  ]), null, null, null, 2)
+  ins.run('oa', 'tool', '余额 100 元', null, 'web_search', 'call_q', null, 3)
+  ins.run('oa', 'assistant', '余额是 100 元', null, null, null, null, 4)
+  db.close()
+
+  const [s] = readHermesDb(dbPath)
+  assert.deepEqual(s.messages[1].toolCalls, [{ id: 'call_q', name: 'web_search', input: '{"query":"余额"}' }])
+  assert.equal(s.messages[2].toolCallId, 'call_q')
+  const out = convertHermesJson(JSON.stringify(s), { sourcePath: dbPath })
+  assertBalanced(out)
+  assert.equal(out.toolCalls, 1)
+  assert.equal(out.events.find((e) => e.type === 'tool/call').data.arguments, '{"query":"余额"}')
+  assert.equal(out.events.filter((e) => e.type === 'tool/result').length, 1)
 })
