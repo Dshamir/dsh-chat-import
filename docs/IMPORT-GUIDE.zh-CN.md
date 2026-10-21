@@ -36,6 +36,7 @@
 | `workbuddy` | WorkBuddy session JSONL (~/.workbuddy/projects) |
 | `qwen` | Qwen Work CN (千问办公) session JSONL (~/.qwenworkcn/projects) |
 | `trae` | Trae Work state.vscdb (Trae/User/workspaceStorage or globalStorage) |
+| `doubao` | Doubao Desktop chat IndexedDB (<User Data>/<profile>/IndexedDB/chrome_doubao-chat_0.indexeddb.leveldb) |
 | `vibe` | Mistral Vibe CLI session directory (~/.vibe/logs/session) |
 | `continue` | Continue session JSON (~/.continue/sessions) |
 | `cline` | Cline session messages.json (~/.cline/data/sessions) |
@@ -49,6 +50,9 @@
 `local-jsonl` 本身不是来源，而是没有来源认领这个文件时的兜底入口。它会自动识别 `dsh` /
 `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` /
 `generic`，判据依次是内容标记、路径提示、解析器试跑；识别错了就用 `parseFormat` 强制指定。
+
+`doubao` 读的是豆包桌面版的 Chromium IndexedDB。它的会话列表在服务端，本地只为「客户端最近
+打开过」的会话保留正文，所以没有本地正文的会话不会被列出、也无法导入（不会凭空伪造会话）。
 
 路径优先用发现结果，不要猜：`scan_discover` 会列出各来源默认根下可导入的会话，可以用
 `path` / `format` / `query` 过滤；面板「导入会话」看到的是同一份列表。根给错了会直接报错
@@ -78,7 +82,7 @@
 
 - `compacted`（claude，历史别名）—— 现在导入压缩摘要本来就是默认行为（原生 compaction 检查点），这个别名只为旧调用方保留。
 - `branch`（chatgpt）—— `main`（默认）只导入主线程；`all` 按分支路径各写一个会话。
-- `sessionIds`（一库多会话的来源：chatgpt / opencode / mimocode / kilocode / teleagent / zcode / trae / goose / zed / crush）—— 只导入这些源会话 id。
+- `sessionIds`（一库多会话的来源：chatgpt / opencode / mimocode / kilocode / teleagent / zcode / trae / doubao / goose / zed / crush）—— 只导入这些源会话 id。
 - `fullHistory`（支持压缩的来源）—— 设为 `true` 时导入全量历史，不写原生 compaction 检查点；默认 `false` 尊重压缩，模型看到的是「摘要检查点 + 其后的内容」。
 - `includeToolUseResult`（claude）—— 把结构化的 `toolUseResult` 附属件也附到每条工具结果后面，包括经 `structuredPatch` / `bashEditDiff` 得到的编辑 diff、问答，以及退出码这类标量元数据。默认 `false`。它会让转录明显变大，而且这个参数属于参数指纹的一部分，改了要重导（`force`）。
 - `lineage`（hermes）—— `tail` 表示只导入 lineage 的叶子会话。

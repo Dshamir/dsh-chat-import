@@ -38,6 +38,7 @@ database → one session; a directory → batch. Root shapes:
 | `workbuddy` | WorkBuddy session JSONL (~/.workbuddy/projects) |
 | `qwen` | Qwen Work CN (千问办公) session JSONL (~/.qwenworkcn/projects) |
 | `trae` | Trae Work state.vscdb (Trae/User/workspaceStorage or globalStorage) |
+| `doubao` | Doubao Desktop chat IndexedDB (<User Data>/<profile>/IndexedDB/chrome_doubao-chat_0.indexeddb.leveldb) |
 | `vibe` | Mistral Vibe CLI session directory (~/.vibe/logs/session) |
 | `continue` | Continue session JSON (~/.continue/sessions) |
 | `cline` | Cline session messages.json (~/.cline/data/sessions) |
@@ -52,6 +53,10 @@ database → one session; a directory → batch. Root shapes:
 It auto-detects `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes`
 / `qoder` / `vibe` / `generic` (content marker > path hint > parser trial) and `parseFormat`
 forces one parser when detection is wrong.
+
+`doubao` reads the Chromium IndexedDB store of Doubao Desktop. Its conversation list is server-side,
+so the local store only holds bodies for conversations the client has recently opened — sessions
+without a locally cached body are not listed and cannot be imported (nothing is fabricated).
 
 Prefer discovery over guessing paths: the `scan_discover` tool lists what is importable under
 each source's default roots (optionally filtered by `path` / `format` / `query`), and the Import
@@ -82,7 +87,7 @@ Every parameter is declared in the tool schema; this is what each one does.
 
 - `compacted` (claude, legacy alias) — importing the compaction summary is the default behavior now (native compaction checkpoints); the alias only exists for older callers.
 - `branch` (chatgpt) — `main` (default) imports the main thread only; `all` writes one session per branch path.
-- `sessionIds` (multi-session sources: chatgpt / opencode / mimocode / kilocode / teleagent / zcode / trae / goose / zed / crush) — import only these source session ids.
+- `sessionIds` (multi-session sources: chatgpt / opencode / mimocode / kilocode / teleagent / zcode / trae / doubao / goose / zed / crush) — import only these source session ids.
 - `fullHistory` (compaction-aware sources) — `true` imports the full history without native compaction checkpoints; default `false` respects compaction, so the model sees the summary checkpoint plus what follows.
 - `includeToolUseResult` (claude) — also import the structured `toolUseResult` sidecar (edit diffs via `structuredPatch` / `bashEditDiff`, questions/answers, exit codes and other scalar metadata) as text appended to each tool result. Default `false`; it grows large transcripts noticeably, and the flag is part of the argument fingerprint (changing it requires `force`).
 - `lineage` (hermes) — `tail` imports only lineage leaf sessions.
