@@ -2,6 +2,18 @@
 
 All notable changes to `dsh-chat-import` are documented here, newest first.
 
+## [Unreleased]
+
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">新增功能</h3>
+
+- **新增豆包桌面版对话导入源**：`import_chat({ format: "doubao", path })` 与面板「导入会话」都能导入豆包的会话（默认根 Windows `%LOCALAPPDATA%\Doubao\User Data`，也可直接给某个库目录）。库是 Chromium IndexedDB 的 LevelDB 目录而不是单个文件，读出正文要过三层编码：LevelDB 的 SSTable 内部键带 8 字节尾标（`WriteBatch` 的键没有）、值是 `FF 11 02`（snappy）或 `FF 11 01`（外置 Blob）包装、剥完才是 Blink 的 `SerializedScriptValue` 头加 V8 结构化序列化流。正文在一条固定主键里，而豆包把**流式生成状态**整条写在该键上（每次增量都是一次重写，生成结束再写一条清空快照），所以必须扫该键的全部历史版本、按 taskId 取最长快照才能还原完整回答——只读当前值会得到空会话。**有意的范围限制**：豆包的会话列表在服务端，本地只为最近打开过的对话保留正文；因此只列出并导入**本地确实有正文**的会话，缺正文的不列出、不导入，也不拿标题凑空壳；一个都读不到时报错并点名库路径与解不开的记录数。
+
+<h3 id="en-unreleased">New Features</h3>
+
+- **New import source: Doubao Desktop**: `import_chat({ format: "doubao", path })` and the Import Sessions panel both import Doubao Desktop conversations (default root on Windows is `%LOCALAPPDATA%\Doubao\User Data`; a specific database directory also works). The database is a Chromium IndexedDB LevelDB **directory**, not a single file, and reading a message body crosses three encodings: LevelDB SSTable keys carry an 8-byte internal trailer (`WriteBatch` keys do not), values are wrapped as `FF 11 02` (snappy) or `FF 11 01` (payload moved to an external Blob), and only then does the Blink `SerializedScriptValue` header plus the V8 structured-serialization stream begin. Bodies live under one fixed primary key, and Doubao writes its **streaming generation state** into that key as a whole (every delta is a full rewrite, and finishing writes a snapshot with an emptied task map), so every historical version of that key must be scanned and the longest snapshot taken per task id — reading only the current value yields an empty session. **Deliberate scope limit**: Doubao keeps its conversation list server-side and caches bodies locally only for recently opened chats, so only conversations with a **locally cached body** are listed and imported; ones without a body are neither listed nor imported, and no shell session is fabricated from a title. When nothing is readable the import fails with the database path and the count of undecodable records.
+
 ## [0.26.2] - 2026-10-19
 
 [中文](#cn-0.26.2) | [English](#en-0.26.2)

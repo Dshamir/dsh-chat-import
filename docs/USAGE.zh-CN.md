@@ -48,6 +48,7 @@ import_chat({ format: "opencode", path: "C:\Users\<you>\.local\share\opencode\op
 import_chat({ format: "kilocode", path: "C:\Users\<you>\.local\share\kilo\kilo.db" })
 import_chat({ format: "teleagent", path: "C:\Users\<you>\.local\share\TeleAgent\users\<account>\teleagent.db" })
 import_chat({ format: "trae", path: "C:\Users\<you>\AppData\Roaming\Trae\User\workspaceStorage" })
+import_chat({ format: "doubao", path: "C:\Users\<you>\AppData\Local\Doubao\User Data" })
 import_chat({ format: "vibe", path: "C:\Users\<you>\.vibe\logs\session" })
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
 ```
@@ -63,7 +64,9 @@ import_chat({ format: "local-jsonl", path: "D:\downloads\unknown.jsonl", parseFo
 
 `format: "opencode"` 认 opencode 的两个存储世代并自动分派：V1 是 `session` / `message` / `part`，V2 是 opencode 2.x 的 `session_v2` / `session_message`。两代共用同一个 `opencode.db`；V1 那三张表只是 V1→V2 迁移的来源，迁移之后旧行仍留在库里。插件只读命中的那一代，所以同一个会话不会被导入两次；两代都没有的库会直接报错，而不是显示成「没有会话」。
 
-`format: "teleagent"` 也接受 `users/` 多账户目录（逐个账户枚举 `<账户>/teleagent.db`），或 `TeleAgent/` 数据根。`format: "trae"` 接受 Trae 的 `User` 根、`workspaceStorage`、`globalStorage`，也可以直接给 `state.vscdb` 的路径。
+`format: "teleagent"` 也接受 `users/` 多账户目录（逐个账户枚举 `<账户>/teleagent.db`），或 `TeleAgent/` 数据根。`format: "trae"` 接受 Trae 的 `User` 根、`workspaceStorage`、`globalStorage`，也可以直接给 `state.vscdb` 的路径。`format: "doubao"` 接受豆包的 `User Data` 根、某个 profile 目录、`IndexedDB` 目录，或直接给某个 `chrome_doubao-chat_0.indexeddb.leveldb` 库目录。
+
+豆包的会话列表在服务端，本地只为**最近打开过**的对话保留正文。所以它只列出并导入本地确实有正文的会话；没有正文的会话不会出现在列表里，也没法导入（不拿标题凑空壳）。一个都读不到时会直接报错，并点名库路径与解不开的记录数。
 
 <details>
 <summary><b>导入参数与行为</b></summary>
