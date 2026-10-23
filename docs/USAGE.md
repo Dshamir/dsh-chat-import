@@ -53,10 +53,11 @@ import_chat({ format: "teleagent", path: "C:\Users\<you>\.local\share\TeleAgent\
 import_chat({ format: "trae", path: "C:\Users\<you>\AppData\Roaming\Trae\User\workspaceStorage" })
 import_chat({ format: "doubao", path: "C:\Users\<you>\AppData\Local\Doubao\User Data" })
 import_chat({ format: "vibe", path: "C:\Users\<you>\.vibe\logs\session" })
+import_chat({ format: "copilot-vscode", path: "C:\Users\<you>\AppData\Roaming\Code\User\workspaceStorage" })
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
 ```
 
-`format: "local-jsonl"` accepts any local `.jsonl` session file (or directory): it auto-detects `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic`, and the `parseFormat` parameter forces one parser when detection is wrong:
+`format: "local-jsonl"` accepts local session files (or a JSONL directory): it auto-detects `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic` / `copilot-vscode`, and the `parseFormat` parameter forces one parser when detection is wrong:
 
 ```
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
@@ -66,6 +67,14 @@ import_chat({ format: "local-jsonl", path: "D:\downloads\unknown.jsonl", parseFo
 `format: "chatgpt"` / `"opencode"` / `"kilocode"` / `"teleagent"` / `"trae"` / `"zcode"` / `"hermes"` (and the other one-database sources) always return a batch result — one file / database holds all conversations, so each conversation becomes its own session in a single call. opencode's `format` recognises its **two storage generations** and dispatches automatically: V1 (`session`/`message`/`part`) and V2 (opencode 2.x's `session_v2`/`session_message`) — both share the same `opencode.db`, where the V1 tables are only the V1→V2 migration source and survive it. Only the matched generation is read, so a session is never imported twice; a database with neither generation fails loudly instead of looking like "no sessions". `format: "teleagent"` also accepts the `users/` multi-account directory (it enumerates `<account>/teleagent.db` per account) or the `TeleAgent/` data root directly. `format: "trae"` accepts a Trae `User` root, `workspaceStorage`, `globalStorage`, or a direct `state.vscdb` path. `format: "doubao"` accepts Doubao's `User Data` root, a profile directory, an `IndexedDB` directory, or a specific `chrome_doubao-chat_0.indexeddb.leveldb` database directory.
 
 Doubao keeps its conversation list server-side and caches bodies locally only for **recently opened** chats, so it lists and imports only conversations that actually have a locally cached body. Conversations without a cached body are neither listed nor importable (no shell session is fabricated from a title). When nothing is readable the import fails loudly with the database path and the count of undecodable records.
+
+`format: "copilot-vscode"` imports VS Code Copilot version 3 `chatSessions/*.json`:
+pass a `workspaceStorage` root, a `chatSessions` directory or a single JSON file.
+The panel discovers Code, Code - Insiders and VSCodium storage on Windows, macOS
+and Linux. `COPILOT_VSCODE_STORAGE_DIR` selects a portable storage root.
+Saved titles, source times, reasoning and tools are preserved. Tool parameters
+and results that VS Code did not save are counted as `missingToolInputs` and
+`missingToolOutputs`. See [IMPORT-GUIDE.md](IMPORT-GUIDE.md#copilot-vs-code).
 
 <details>
 <summary><b>Import parameters & behaviors</b></summary>

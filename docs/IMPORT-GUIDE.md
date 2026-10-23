@@ -41,6 +41,7 @@ database → one session; a directory → batch. Root shapes:
 | `doubao` | Doubao Desktop chat IndexedDB (<User Data>/<profile>/IndexedDB/chrome_doubao-chat_0.indexeddb.leveldb) |
 | `vibe` | Mistral Vibe CLI session directory (~/.vibe/logs/session) |
 | `continue` | Continue session JSON (~/.continue/sessions) |
+| `copilot-vscode` | GitHub Copilot VS Code session JSON (<User>/workspaceStorage/<hash>/chatSessions) |
 | `cline` | Cline session messages.json (~/.cline/data/sessions) |
 | `goose` | Goose session db sessions.db (~/.local/share/goose/sessions) |
 | `zed` | Zed agent thread db threads.db (<data_dir>/threads) |
@@ -104,6 +105,17 @@ Importing the same source twice is idempotent by design:
 - **`force: true`** → always a fresh copy.
 
 Session logs are append-only: imports only `create` + `append`, never rewrite history.
+
+## Copilot VS Code
+
+`copilot-vscode` accepts a `workspaceStorage` root, a `chatSessions` directory, or a
+single version 3 session JSON file. Default discovery covers Code, Code -
+Insiders and VSCodium; set `COPILOT_VSCODE_STORAGE_DIR` for portable user data.
+The title, source times, prose, reasoning and stored tool input/results are
+preserved. The adjacent `workspace.json` supplies a single folder workspace.
+VS Code does not save every tool's original parameters or output. Import
+results report `missingToolInputs` and `missingToolOutputs`; unsupported result
+blocks contribute to `droppedToolResultBlocks`.
 
 ## Related
 

@@ -78,7 +78,7 @@ test('纯函数层（lib/convert、lib/export）只 import 本层模块与无 IO
   const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'lib')
   const allowed = (layer, spec) => /^\.\/[\w-]+\.mjs$/.test(spec)
     || (layer === 'export' && /^\.\.\/convert\/[\w-]+\.mjs$/.test(spec))
-    || spec === 'node:path' || spec === 'node:crypto'
+    || spec === 'node:path' || spec === 'node:crypto' || spec === 'node:url'
   const offenders = []
   for (const layer of ['convert', 'export']) {
     for (const name of readdirSync(join(root, layer))) {

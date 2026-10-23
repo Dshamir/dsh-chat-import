@@ -63,7 +63,7 @@ test('FORMATS 顺序固定（工具 schema enum 与默认扫描 / 流式产出�
   assert.deepEqual(FORMATS, [
     'claude', 'codex', 'cursor', 'gemini', 'antigravity', 'reasonix', 'opencode', 'mimocode',
     'zcode', 'grokbuild', 'openclaw', 'pi', 'omp', 'hermes', 'kimi', 'kilocode', 'qoder', 'chatgpt', 'workbuddy', 'qwen',
-    'continue', 'cline', 'goose', 'dsh4', 'zed', 'crush', 'teleagent', 'trae', 'doubao', 'vibe', 'dsh',
+    'continue', 'cline', 'goose', 'dsh4', 'zed', 'crush', 'teleagent', 'trae', 'doubao', 'vibe', 'dsh', 'copilot-vscode',
   ])
 })
 
@@ -119,7 +119,9 @@ test('fileFormatsForPath：独占 / 多候选 / 扩展名兜底', () => {
     ['/h/.qoder/projects/p/s.jsonl', ['qoder']],
     ['/h/.qoder-cn/projects/p/s.jsonl', ['qoder']],
     ['/tmp/random/export.jsonl', ['claude', 'codex', 'cursor', 'reasonix', 'openclaw', 'hermes']],
-    ['/tmp/random/export.json', ['gemini', 'chatgpt']],
+    ['/tmp/random/export.json', ['gemini', 'chatgpt', 'copilot-vscode']],
+    ['/vscode/one/chatSessions/session.json', ['copilot-vscode']],
+    ['C:\\Code\\one\\chatSessions\\session.json', ['copilot-vscode']],
     ['/tmp/random/other.db', ['opencode', 'zcode', 'hermes']],
     ['/tmp/random/notes.txt', []],
   ]

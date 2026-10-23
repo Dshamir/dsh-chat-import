@@ -108,7 +108,7 @@ export interface ImportOptions {
 }
 
 export type LocalJsonlFormat =
-  | 'dsh' | 'claude' | 'codex' | 'cursor' | 'reasonix' | 'pi' | 'openclaw' | 'hermes' | 'qoder' | 'vibe'
+  | 'dsh' | 'claude' | 'codex' | 'cursor' | 'reasonix' | 'pi' | 'openclaw' | 'hermes' | 'qoder' | 'vibe' | 'copilot-vscode'
   /** interchange v1 会话文档（内容标记 "interchange":"dsh-chat-import"；长尾来源与 skill 路线的落点）。 */
   | 'generic'
 
@@ -117,7 +117,7 @@ export type ChatFormat =
   | 'claude' | 'codex' | 'chatgpt' | 'cursor' | 'gemini' | 'antigravity' | 'reasonix' | 'opencode'
   | 'mimocode' | 'kilocode' | 'teleagent' | 'zcode' | 'grokbuild' | 'openclaw' | 'hermes' | 'pi' | 'omp'
   | 'kimi' | 'qoder' | 'workbuddy' | 'qwen' | 'trae' | 'doubao' | 'vibe' | 'continue' | 'cline' | 'goose'
-  | 'zed' | 'crush' | 'dsh' | 'dsh4' | 'local-jsonl'
+  | 'zed' | 'crush' | 'dsh' | 'dsh4' | 'local-jsonl' | 'copilot-vscode'
 
 /** import_chat 参数：公共导入参数（ImportOptions）+ 源格式 + 源专属参数。 */
 export interface ImportChatOptions extends ImportOptions {
@@ -265,6 +265,9 @@ export interface ImportReport extends DecisionReport {
   droppedMalformedOutputs?: number
   /** 未能转成标准 JSON、原样保留的工具参数条数（Codex custom_tool_call）。 */
   droppedMalformedArgs?: number
+  /** 工具调用的原始参数 / 结果未在来源文件中持久化的条数。 */
+  missingToolInputs?: number
+  missingToolOutputs?: number
   /**
    * Codex Desktop「导入外部 agent 会话」展平信封的还原计数（任一 > 0 才占键）：
    * calls = 还原的 tool-call 数、results = 配上调用的结果数、
@@ -348,6 +351,9 @@ export interface PreviewEntry {
   toolCalls?: number
   skipped?: number
   skipReason?: string
+  missingToolInputs?: number
+  missingToolOutputs?: number
+  droppedToolResultBlocks?: number
   detectedFormat?: string
   detectedBy?: 'override' | 'marker' | 'path-hint' | 'content'
   bundle?: boolean
@@ -640,7 +646,7 @@ export type ScanFormat =
   | 'claude' | 'codex' | 'cursor' | 'gemini' | 'antigravity' | 'reasonix' | 'opencode' | 'mimocode'
   | 'zcode' | 'grokbuild' | 'openclaw' | 'pi' | 'omp' | 'hermes' | 'kimi' | 'kilocode' | 'qoder'
   | 'chatgpt' | 'workbuddy' | 'qwen' | 'continue' | 'cline' | 'goose' | 'dsh4' | 'zed'
-  | 'crush' | 'teleagent' | 'trae' | 'doubao' | 'vibe' | 'dsh'
+  | 'crush' | 'teleagent' | 'trae' | 'doubao' | 'vibe' | 'dsh' | 'copilot-vscode'
 
 export type ImportStatusLabel = 'imported' | 'partial' | 'not-imported' | 'archived'
 

@@ -55,6 +55,7 @@ const MAP = {
   qoder: { lobe: ['qoder', true], ink: [0, 0, 23.38, 24], wordInk: [2, 1, 92, 22] },
   qwen: { lobe: ['qwen', true], ink: [1, 1, 22, 22], wordInk: [2, 0, 70.81, 22] },
   cline: { lobe: ['cline', true], ink: [0.5, 0, 23.07, 24], wordInk: [2, 0, 83.96, 22] },
+  copilot: { lobe: ['githubcopilot', false], ink: [0, 2.5, 24, 19] },
   goose: { lobe: ['goose', true], ink: [0, 0, 24, 24], wordInk: [2, 2, 82.89, 22] },
   pi: { lobe: ['pi', false], ink: [1, 1, 22, 22] },
   hermes: { lobe: ['hermesagent', false], ink: [1, 0, 23, 24] },

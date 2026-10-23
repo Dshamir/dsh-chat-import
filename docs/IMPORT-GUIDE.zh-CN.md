@@ -39,6 +39,7 @@
 | `doubao` | Doubao Desktop chat IndexedDB (<User Data>/<profile>/IndexedDB/chrome_doubao-chat_0.indexeddb.leveldb) |
 | `vibe` | Mistral Vibe CLI session directory (~/.vibe/logs/session) |
 | `continue` | Continue session JSON (~/.continue/sessions) |
+| `copilot-vscode` | GitHub Copilot VS Code session JSON (<User>/workspaceStorage/<hash>/chatSessions) |
 | `cline` | Cline session messages.json (~/.cline/data/sessions) |
 | `goose` | Goose session db sessions.db (~/.local/share/goose/sessions) |
 | `zed` | Zed agent thread db threads.db (<data_dir>/threads) |
@@ -99,6 +100,16 @@
 - **`force: true`** —— 恒另建副本。
 
 会话日志是 append-only 的：导入只做 `create` + `append`，不改写历史。
+
+## Copilot VS Code
+
+`copilot-vscode` 接受 `workspaceStorage` 根、`chatSessions` 目录或单个 version 3
+会话 JSON 文件。默认发现覆盖 Code、Code - Insiders 和 VSCodium；便携安装可用
+`COPILOT_VSCODE_STORAGE_DIR` 指向工作区存储目录。
+导入保留标题、源时间、正文、推理及已保存的工具输入和结果，相邻 `workspace.json`
+提供单文件夹工作区。VS Code 并非总会保存工具原始参数和结果，缺失数量通过
+`missingToolInputs` 和 `missingToolOutputs` 上报；无法导入的结果块计入
+`droppedToolResultBlocks`。
 
 ## 相关
 
