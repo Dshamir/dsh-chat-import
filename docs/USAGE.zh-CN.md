@@ -50,10 +50,11 @@ import_chat({ format: "teleagent", path: "C:\Users\<you>\.local\share\TeleAgent\
 import_chat({ format: "trae", path: "C:\Users\<you>\AppData\Roaming\Trae\User\workspaceStorage" })
 import_chat({ format: "doubao", path: "C:\Users\<you>\AppData\Local\Doubao\User Data" })
 import_chat({ format: "vibe", path: "C:\Users\<you>\.vibe\logs\session" })
+import_chat({ format: "copilot-vscode", path: "C:\Users\<you>\AppData\Roaming\Code\User\workspaceStorage" })
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
 ```
 
-`format: "local-jsonl"` 接受任意本地 `.jsonl` 会话文件或目录。它会自动识别 `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic`；识别不准时用 `parseFormat` 强制指定：
+`format: "local-jsonl"` 接受本地会话文件或 JSONL 目录。它会自动识别 `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic` / `copilot-vscode`；识别不准时用 `parseFormat` 强制指定：
 
 ```
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
@@ -67,6 +68,13 @@ import_chat({ format: "local-jsonl", path: "D:\downloads\unknown.jsonl", parseFo
 `format: "teleagent"` 也接受 `users/` 多账户目录（逐个账户枚举 `<账户>/teleagent.db`），或 `TeleAgent/` 数据根。`format: "trae"` 接受 Trae 的 `User` 根、`workspaceStorage`、`globalStorage`，也可以直接给 `state.vscdb` 的路径。`format: "doubao"` 接受豆包的 `User Data` 根、某个 profile 目录、`IndexedDB` 目录，或直接给某个 `chrome_doubao-chat_0.indexeddb.leveldb` 库目录。
 
 豆包的会话列表在服务端，本地只为**最近打开过**的对话保留正文。所以它只列出并导入本地确实有正文的会话；没有正文的会话不会出现在列表里，也没法导入（不拿标题凑空壳）。一个都读不到时会直接报错，并点名库路径与解不开的记录数。
+
+`format: "copilot-vscode"` 导入 VS Code Copilot 的 version 3 `chatSessions/*.json`，
+可传 `workspaceStorage` 根、`chatSessions` 目录或单个 JSON 文件。面板自动发现
+Windows、macOS 和 Linux 下 Code、Code - Insiders、VSCodium 的存储，便携安装可设
+`COPILOT_VSCODE_STORAGE_DIR`。导入保留已保存的标题、源时间、推理和工具；
+VS Code 未保存的工具参数及结果分别通过 `missingToolInputs`、`missingToolOutputs`
+计数上报。详见 [IMPORT-GUIDE.zh-CN.md](IMPORT-GUIDE.zh-CN.md#copilot-vs-code)。
 
 <details>
 <summary><b>导入参数与行为</b></summary>

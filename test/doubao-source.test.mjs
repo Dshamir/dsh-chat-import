@@ -275,7 +275,10 @@ test('doubaoSource：描述符字段齐全（format / roots / scan / sessionsFro
   assert.equal(typeof doubaoSource.scan, 'function')
   assert.equal(typeof doubaoSource.roots, 'function')
   const roots = doubaoSource.roots('C:/Users/tester', { LOCALAPPDATA: 'C:/Users/tester/AppData/Local' })
-  assert.deepEqual(roots, [join('C:/Users/tester/AppData/Local', 'Doubao', 'User Data')])
+  const expected = process.platform === 'win32' ? join('C:/Users/tester/AppData/Local', 'Doubao', 'User Data')
+    : process.platform === 'darwin' ? join('C:/Users/tester', 'Library', 'Application Support', 'Doubao')
+      : join('C:/Users/tester', '.config', 'Doubao')
+  assert.deepEqual(roots, [expected])
 })
 
 test('doubaoSource：不给 matchFile（库是目录，单文件形态不存在）', () => {
