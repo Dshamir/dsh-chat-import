@@ -114,6 +114,24 @@ test('Copilot CLI pairs execution results that arrive without a declared request
   assert.equal(out.missingToolOutputs, 0)
 })
 
+test('Copilot CLI keeps an undeclared execution visible after an empty assistant message', () => {
+  // 纯信令的 assistant.message 会弹出空步；随后补出的 tool-call 必须落在仍可见的新步里，
+  // 而不是写进已弹出的 step（那样整条执行轨迹会静默消失）。
+  const events = [
+    copilotCliEvent('e-start', null, 0, 'session.start', { sessionId: COPILOT_CLI_SESSION, context: {} }),
+    copilotCliEvent('e-user', 'e-start', 100, 'user.message', { content: 'Go' }),
+    copilotCliEvent('e-empty', 'e-user', 200, 'assistant.message', { content: '' }),
+    copilotCliEvent('e-exec1', 'e-empty', 300, 'tool.execution_start', { toolCallId: 'c1', toolName: 'run_cmd', arguments: {} }),
+    copilotCliEvent('e-exec2', 'e-exec1', 400, 'tool.execution_complete', { toolCallId: 'c1', success: true, result: { content: 'ok' } }),
+  ]
+  const out = convert(events)
+  assert.equal(out.unannouncedToolCalls, 1)
+  const step = out.turns[0].steps[0]
+  assert.deepEqual(step.content.map((b) => b.type), ['tool-call'])
+  assert.equal(step.toolResults.length, 1)
+  assertEnvelopeHygiene(out.events)
+})
+
 test('Copilot CLI reports orphan results and unreadable outputs', () => {
   const events = [
     copilotCliEvent('e-start', null, 0, 'session.start', { sessionId: COPILOT_CLI_SESSION, context: {} }),
@@ -197,6 +215,20 @@ for (const [name, raw] of [
   })
 }
 
+test('Copilot CLI refuses a conversation without session.start', () => {
+  // 没有 session.start 就没有「这份流是 Copilot CLI」的签名：带 user/assistant 消息的外来
+  // JSONL 不能被认领（否则 local-jsonl 的内容试跑会误判来源）。
+  const raw = copilotCliJsonl([
+    copilotCliEvent('e1', null, 0, 'user.message', { content: 'Hello' }),
+    copilotCliEvent('e2', 'e1', 1000, 'assistant.message', { content: 'Hi' }),
+  ])
+  const out = convertCopilotCliJsonl(raw)
+  assert.equal(out.meta, null)
+  assert.match(out.skipReason, /no session\.start/)
+  const detected = convertLocalJsonl(raw, { sourcePath: '/tmp/random/export.jsonl' })
+  assert.equal(detected.detectedFormat, null)
+})
+
 test('copilotCliHeadMeta extracts identity, workspace and first prompt; null for foreign streams', () => {
   const meta = copilotCliHeadMeta(copilotCliConversation())
   assert.equal(meta.id, COPILOT_CLI_SESSION)
@@ -222,6 +254,8 @@ test('local-jsonl detects session-state event streams and forces the parser via 
   for (const p of ['/home/u/.copilot/session-state/abc/events.jsonl', 'C:\\cop\\session-state\\abc\\events.jsonl']) {
     const out = convertLocalJsonl(raw, { sourcePath: p })
     assert.equal(out.meta?.sourceId, COPILOT_CLI_SESSION, p)
+    // 路径足够特征：只试 copilot-cli，不再靠内容试跑全部 13 个解析器
+    assert.equal(out.detectedBy, 'path-hint', p)
   }
   const forced = convertLocalJsonl(raw, { sourcePath: '/tmp/random/export.jsonl', parseFormat: 'copilot-cli' })
   assert.equal(forced.meta?.sourceId, COPILOT_CLI_SESSION)

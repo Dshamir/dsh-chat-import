@@ -172,3 +172,29 @@ test('Copilot CLI single-file import outside session-state works via explicit fo
   assert.equal(value.turns, 2)
   assert.equal(persistence.sessions.size, 1)
 })
+
+test('Copilot CLI degradation counters reach the public result and render', async () => {
+  const events = copilotCliConversation()
+  events.push(copilotCliEvent('e-unknown', 'e-end', 8000, 'brand.new.event', {}))
+  const { def } = setup(events)
+  const value = await def.execute({ path: PATH })
+  // 未知事件类型与未导入附件都必须在工具结果里可见（失败要大声）
+  assert.equal(value.unknownEvents, 1)
+  assert.equal(value.droppedAttachments, 1)
+  assert.deepEqual(validateJsonSchemaValue(def.output.schema, value), [])
+  const rendered = JSON.stringify(def.output.render({ format: 'copilot-cli' }, value))
+  assert.match(rendered, /未知事件/)
+  assert.match(rendered, /未导入附件/)
+})
+
+test('Copilot CLI discovery normalizes long multi-line prompts into the source title', async () => {
+  const root = '/home/example/.copilot/session-state'
+  const file = root + '/abc-long/events.jsonl'
+  const events = copilotCliConversation()
+  events.find((e) => e.type === 'user.message').data.content = 'Line one\n' + 'x'.repeat(240)
+  const files = withDirs(root, new Map([[file, { type: 'file', text: copilotCliJsonl(events), mtimeMs: TS }]]))
+  const result = await discoverSessions({ path: root, format: 'copilot-cli', host: memoryHost(files), imports: {} })
+  assert.equal(result.total, 1)
+  assert.ok(result.sessions[0].title.length <= 80, 'title 与导入侧同口径（≤80 字符）')
+  assert.ok(!result.sessions[0].title.includes('\n'))
+})

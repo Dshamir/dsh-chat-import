@@ -51,7 +51,8 @@
 
 `local-jsonl` 本身不是来源，而是没有来源认领这个文件时的兜底入口。它会自动识别 `dsh` /
 `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` /
-`generic`，判据依次是内容标记、路径提示、解析器试跑；识别错了就用 `parseFormat` 强制指定。
+`copilot-vscode` / `copilot-cli` / `generic`，判据依次是内容标记、路径提示、解析器试跑；识别
+错了就用 `parseFormat` 强制指定。
 
 `doubao` 读的是豆包桌面版的 Chromium IndexedDB。它的会话列表在服务端，本地只为「客户端最近
 打开过」的会话保留正文，所以没有本地正文的会话不会被列出、也无法导入（不会凭空伪造会话）。
@@ -120,8 +121,10 @@
 推理，以及按 `toolCallId` 与执行结果配对的工具调用。`session.compaction_complete`
 写为 DSH 原生压缩检查点（边界之前的轮留在日志里、标记 log-only）；
 `fullHistory: true` 保留全量投影。标题没有显式来源，按首条人类提问兜底。
-事件格式上游没有稳定承诺：未知事件类型与不可读行都计数上报
-（`metaMessages`、`unknownEvents`、`skippedLines`），不会让整份会话失败。
+事件格式上游没有稳定承诺：未知事件类型、未导入的附件、没配上声明的工具事件都计数上报
+（`metaMessages`、`unknownEvents`、`droppedAttachments`、`unannouncedToolCalls`、
+`orphanResults`），不可读行与疑似 secrets 另报（`skippedLines`、`secrets`），都不会让整份
+会话失败。
 
 ## 相关
 
