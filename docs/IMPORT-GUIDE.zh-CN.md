@@ -40,6 +40,7 @@
 | `vibe` | Mistral Vibe CLI session directory (~/.vibe/logs/session) |
 | `continue` | Continue session JSON (~/.continue/sessions) |
 | `copilot-vscode` | GitHub Copilot VS Code session JSON (<User>/workspaceStorage/<hash>/chatSessions) |
+| `copilot-cli` | GitHub Copilot CLI session events.jsonl (~/.copilot/session-state/<id>) |
 | `cline` | Cline session messages.json (~/.cline/data/sessions) |
 | `goose` | Goose session db sessions.db (~/.local/share/goose/sessions) |
 | `zed` | Zed agent thread db threads.db (<data_dir>/threads) |
@@ -110,6 +111,17 @@
 提供单文件夹工作区。VS Code 并非总会保存工具原始参数和结果，缺失数量通过
 `missingToolInputs` 和 `missingToolOutputs` 上报；无法导入的结果块计入
 `droppedToolResultBlocks`。
+
+## Copilot CLI
+
+`copilot-cli` 读取 `~/.copilot/session-state/<session-id>/events.jsonl` 的逐会话
+事件流；path 接受 `session-state` 根、单个会话目录或单个 `events.jsonl` 文件。
+`.copilot` 根被迁移过时用 `COPILOT_HOME` 指向。事件流还原用户提问、助手正文与
+推理，以及按 `toolCallId` 与执行结果配对的工具调用。`session.compaction_complete`
+写为 DSH 原生压缩检查点（边界之前的轮留在日志里、标记 log-only）；
+`fullHistory: true` 保留全量投影。标题没有显式来源，按首条人类提问兜底。
+事件格式上游没有稳定承诺：未知事件类型与不可读行都计数上报
+（`metaMessages`、`unknownEvents`、`skippedLines`），不会让整份会话失败。
 
 ## 相关
 

@@ -70,6 +70,7 @@
   <tr>
     <td align="center" width="20%"><a href="#使用"><img src="./assets/agents/local-jsonl.svg" width="56" height="56" alt="本地 JSONL" /><br /><b>本地 JSONL</b></a></td>
     <td align="center" width="20%"><a href="https://github.com/microsoft/vscode"><img src="./assets/agents/copilot.svg" width="56" height="56" alt="Copilot VS Code" /><br /><b>Copilot VS Code</b></a></td>
+    <td align="center" width="20%"><a href="https://github.com/github/copilot-cli"><img src="./assets/agents/copilot.svg" width="56" height="56" alt="Copilot CLI" /><br /><b>Copilot CLI</b></a></td>
   </tr>
 </table>
 

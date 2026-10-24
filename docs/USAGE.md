@@ -54,10 +54,11 @@ import_chat({ format: "trae", path: "C:\Users\<you>\AppData\Roaming\Trae\User\wo
 import_chat({ format: "doubao", path: "C:\Users\<you>\AppData\Local\Doubao\User Data" })
 import_chat({ format: "vibe", path: "C:\Users\<you>\.vibe\logs\session" })
 import_chat({ format: "copilot-vscode", path: "C:\Users\<you>\AppData\Roaming\Code\User\workspaceStorage" })
+import_chat({ format: "copilot-cli", path: "C:\Users\<you>\.copilot\session-state" })
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
 ```
 
-`format: "local-jsonl"` accepts local session files (or a JSONL directory): it auto-detects `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic` / `copilot-vscode`, and the `parseFormat` parameter forces one parser when detection is wrong:
+`format: "local-jsonl"` accepts local session files (or a JSONL directory): it auto-detects `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic` / `copilot-vscode` / `copilot-cli`, and the `parseFormat` parameter forces one parser when detection is wrong:
 
 ```
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
@@ -75,6 +76,14 @@ and Linux. `COPILOT_VSCODE_STORAGE_DIR` selects a portable storage root.
 Saved titles, source times, reasoning and tools are preserved. Tool parameters
 and results that VS Code did not save are counted as `missingToolInputs` and
 `missingToolOutputs`. See [IMPORT-GUIDE.md](IMPORT-GUIDE.md#copilot-vs-code).
+
+`format: "copilot-cli"` imports Copilot CLI session event streams
+(`~/.copilot/session-state/<id>/events.jsonl`): pass the `session-state` root,
+a session directory or a single `events.jsonl` file. `COPILOT_HOME` selects a
+moved `.copilot` root. Prompts, replies, reasoning and tool executions are
+replayed in order; source-side compactions become native DSH compaction
+checkpoints unless `fullHistory: true`. See
+[IMPORT-GUIDE.md](IMPORT-GUIDE.md#copilot-cli).
 
 <details>
 <summary><b>Import parameters & behaviors</b></summary>
