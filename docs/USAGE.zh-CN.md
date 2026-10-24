@@ -51,10 +51,11 @@ import_chat({ format: "trae", path: "C:\Users\<you>\AppData\Roaming\Trae\User\wo
 import_chat({ format: "doubao", path: "C:\Users\<you>\AppData\Local\Doubao\User Data" })
 import_chat({ format: "vibe", path: "C:\Users\<you>\.vibe\logs\session" })
 import_chat({ format: "copilot-vscode", path: "C:\Users\<you>\AppData\Roaming\Code\User\workspaceStorage" })
+import_chat({ format: "copilot-cli", path: "C:\Users\<you>\.copilot\session-state" })
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
 ```
 
-`format: "local-jsonl"` 接受本地会话文件或 JSONL 目录。它会自动识别 `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic` / `copilot-vscode`；识别不准时用 `parseFormat` 强制指定：
+`format: "local-jsonl"` 接受本地会话文件或 JSONL 目录。它会自动识别 `dsh` / `claude` / `codex` / `cursor` / `reasonix` / `pi` / `openclaw` / `hermes` / `qoder` / `vibe` / `generic` / `copilot-vscode` / `copilot-cli`；识别不准时用 `parseFormat` 强制指定：
 
 ```
 import_chat({ format: "local-jsonl", path: "D:\downloads\session.jsonl" })
@@ -75,6 +76,13 @@ Windows、macOS 和 Linux 下 Code、Code - Insiders、VSCodium 的存储，便�
 `COPILOT_VSCODE_STORAGE_DIR`。导入保留已保存的标题、源时间、推理和工具；
 VS Code 未保存的工具参数及结果分别通过 `missingToolInputs`、`missingToolOutputs`
 计数上报。详见 [IMPORT-GUIDE.zh-CN.md](IMPORT-GUIDE.zh-CN.md#copilot-vs-code)。
+
+`format: "copilot-cli"` 导入 Copilot CLI 的逐会话事件流
+（`~/.copilot/session-state/<id>/events.jsonl`）：可传 `session-state` 根、单个
+会话目录或单个 `events.jsonl` 文件；`.copilot` 根被迁移过时设 `COPILOT_HOME`。
+按顺序还原提问、回复、推理与工具执行；源侧压缩默认写为 DSH 原生压缩检查点，
+`fullHistory: true` 保留全量。详见
+[IMPORT-GUIDE.zh-CN.md](IMPORT-GUIDE.zh-CN.md#copilot-cli)。
 
 <details>
 <summary><b>导入参数与行为</b></summary>
