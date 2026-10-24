@@ -38,6 +38,7 @@ const IMPLEMENTATION = {
   // pi 家族（pi / omp）的转换实现共用 lib/convert/pi-family.mjs：开关在引擎里消费
   pi: ['lib/convert/pi-family.mjs'],
   omp: ['lib/convert/pi-family.mjs'],
+  qoder: ['lib/convert/qoder.mjs'],
   zcode: ['lib/convert/zcode.mjs'],
   zed: ['lib/convert/zed.mjs'],
   opencode: ['lib/sources/opencode.mjs'],
@@ -150,6 +151,41 @@ test('fullHistory：grokbuild 换值重导走 argsChanged，不被「源未变�
   assert.equal(again.argsChanged, undefined)
 
   const flipped = await def.execute({ path: dir, fullHistory: true })
+  assert.equal(flipped.argsChanged, true, 'fullHistory 必须进参数指纹：换值要能报出来（而不是静默跳过）')
+  assert.equal(persistence.sessions.size, 1, 'argsChanged 是跳过并点名，不另建会话')
+})
+
+test('fullHistory：qoder 换值重导走 argsChanged，不被「源未变」短路径静默吞掉', async () => {
+  // qoder 的压缩感知实现（isCompactSummary → 原生检查点）由 test/qoder.test.mjs 覆盖；
+  // 这一条只钉接线：实现进 spec 声明与参数指纹，否则换值永远走「源未变」短路径。
+  const sid = 'qoder-fh-001'
+  const file = 'D:\\demo\\qoder\\projects\\proj-a\\' + sid + '.jsonl'
+  const rec = (extra) => JSON.stringify({ sessionId: sid, timestamp: '2026-07-16T12:00:00Z', ...extra })
+  const chat = [
+    rec({ type: 'user', message: { role: 'user', content: '第一问' } }),
+    rec({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: '第一答' }] } }),
+    rec({ type: 'system', subtype: 'compact_boundary', isCompactSummary: true }),
+    rec({
+      type: 'user',
+      isCompactSummary: true,
+      message: { role: 'user', content: 'This session is being continued from a previous conversation that ran out of context.' },
+    }),
+    rec({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: '第二答' }] } }),
+  ].join('\n')
+  const { ctx, persistence } = makeCtx({ [file]: chat })
+  apply(ctx)
+  const def = chatDef(ctx, 'qoder')
+
+  const first = await def.execute({ path: file })
+  assert.equal(first.alreadyImported, false)
+  assert.equal(first.compacted, true, '默认尊重压缩：夹具应发出原生压缩检查点')
+  assert.equal(persistence.sessions.size, 1)
+
+  const again = await def.execute({ path: file })
+  assert.equal(again.alreadyImported, true)
+  assert.equal(again.argsChanged, undefined)
+
+  const flipped = await def.execute({ path: file, fullHistory: true })
   assert.equal(flipped.argsChanged, true, 'fullHistory 必须进参数指纹：换值要能报出来（而不是静默跳过）')
   assert.equal(persistence.sessions.size, 1, 'argsChanged 是跳过并点名，不另建会话')
 })
