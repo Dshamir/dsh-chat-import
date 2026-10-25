@@ -97,8 +97,8 @@ export interface ImportOptions {
   recursive?: boolean
   /** 期望的源文件 SHA-256（小写 hex）；不符时大声失败、不写任何东西。 */
   expectedHash?: string
-  /** true 时把导入的时间戳平移到当前（保留相对间隔）；默认保留源时间。 */
-  restamp?: boolean
+  /** true 时把导入的时间戳平移到当前（保留相对间隔）；'end' 让最后一个事件落在当前（拖到侧栏工作区用）；默认保留源时间。 */
+  restamp?: boolean | 'end'
   /** 归组方式：auto（默认）/ per-project / dedicated（全部导入进同一个工作区）。 */
   workspaceMode?: WorkspaceMode
   /** workspaceMode=dedicated 时的工作区目录。 */
