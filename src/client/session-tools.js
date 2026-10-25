@@ -273,6 +273,129 @@
       }, []);
     }
 
+    /**
+     * Row tools for the discovery list: preview card, hide (reversible), delete-source confirm and
+     * drag onto a sidebar workspace. The state they need and the overlays they render live here so
+     * the panel only passes in its list / selection and the import flow; `tools` holds the
+     * callbacks the memoized rows compare, so their identity stays constant while `actions`
+     * follows every render.
+     */
+    function useSessionRowTools({ selected, setItems, setSelected, setEpoch, doImport, terms, importing, t }) {
+      const [preview, setPreview] = useState(null);
+      const [deleteAsk, setDeleteAsk] = useState(null);
+      const [acting, setActing] = useState(false);
+      const [dragging, setDragging] = useState(false);
+
+      // hidden / deleted rows leave the list and the cross-page selection
+      const dropKeys = (keys) => {
+        setItems((prev) => prev.filter((x) => !keys.has(itemKey(x))));
+        setSelected((prev) => {
+          const next = new Map(prev);
+          for (const k of keys) next.delete(k);
+          return next;
+        });
+      };
+      // hide keeps the source file: the ignore entry is what the next scan filters on, and the
+      // toast's Undo (unhide) only has an effect once the list is rescanned
+      const hideSessions = async (list) => {
+        if (!list.length || acting) return;
+        setActing(true);
+        try {
+          const items = list.map(toItem);
+          const r = await postJson("/api-import/hide", { items });
+          if (!r.ok) { showAppToast(r.error || t("hide.error")); return; }
+          dropKeys(new Set(list.map(itemKey)));
+          if (preview && list.some((x) => itemKey(x) === itemKey(preview))) setPreview(null);
+          showAppToast(t("hide.done", { n: list.length }), [{
+            label: t("hide.undo"),
+            onClick: async () => {
+              const back = await postJson("/api-import/unhide", { items });
+              if (back.ok) setEpoch((n) => n + 1);
+              else showAppToast(back.error || t("hide.error"));
+            },
+          }]);
+        } catch (err) {
+          showAppToast(t("error.request", { msg: errorText(err) }));
+        } finally {
+          setActing(false);
+        }
+      };
+      // delete is confirmed and irreversible from the panel: the source file goes to the Recycle
+      // Bin, the already-imported DSH copies stay; rejected items keep their rows
+      const deleteSessions = async () => {
+        const list = deleteAsk || [];
+        if (!list.length || acting) return;
+        setActing(true);
+        try {
+          const r = await postJson("/api-import/delete-source", { confirm: true, items: list.map(toItem) });
+          if (!r.ok) { showAppToast(r.error || t("delete.error")); return; }
+          const done = new Set((r.data.results || []).filter((x) => x.status === "deleted").map((x) => x.sourcePath));
+          const failed = (r.data.results || []).filter((x) => x.status !== "deleted");
+          dropKeys(new Set(list.filter((x) => done.has(x.sourcePath)).map(itemKey)));
+          if (preview && done.has(preview.sourcePath)) setPreview(null);
+          const lines = [done.size > 0 ? t("delete.done", { n: done.size }) : ""];
+          if (failed.length > 0) lines.push(t("delete.failed", { n: failed.length, msg: failed[0].error || "" }));
+          showAppToast(lines.filter(Boolean).join(t("result.separator")));
+        } catch (err) {
+          showAppToast(t("error.request", { msg: errorText(err) }));
+        } finally {
+          setActing(false);
+          setDeleteAsk(null);
+        }
+      };
+      // drag source: the row, or the whole selection when the dragged row is part of it
+      const dragItems = (s) => {
+        const key = itemKey(s);
+        const list = selected.has(key) && selected.size > 1 ? [...selected.values()] : [s];
+        return list.map(toItem);
+      };
+      useSidebarWorkspaceDrop((items, ws) => {
+        setDragging(false);
+        doImport(items, { workspace: ws });
+      });
+
+      // 回调实现随每次渲染更新，暴露给 memo 行的引用恒定（否则 memo 白做）
+      const actions = useRef({});
+      actions.current = {
+        preview: (s) => setPreview(s),
+        hide: (s) => hideSessions([s]),
+        remove: (list) => setDeleteAsk(list),
+        dragStart: (e, s) => {
+          const items = dragItems(s);
+          e.dataTransfer.setData(SESSION_DRAG_MIME, JSON.stringify(items));
+          e.dataTransfer.setData("text/plain", s.title || s.sourcePath);
+          e.dataTransfer.effectAllowed = "copy";
+          setDragging(true);
+        },
+        dragEnd: () => setDragging(false),
+      };
+      const tools = useMemo(() => ({
+        preview: (s) => actions.current.preview(s),
+        hide: (s) => actions.current.hide(s),
+        remove: (list) => actions.current.remove(list),
+        dragStart: (e, s) => actions.current.dragStart(e, s),
+        dragEnd: () => actions.current.dragEnd(),
+      }), []);
+
+      // drag hint + preview card + delete confirmation，叠在列表之上（随打开它们的工具放在一起，
+      // 面板只追加这一个元素；Fragment 本身不产生 DOM 节点）
+      const overlay = h(React.Fragment, null,
+        dragging && h("div", { style: TOOL_STYLES.dragHint, role: "status" }, t("drag.hint")),
+        preview && h(SessionPreview, {
+          session: preview, terms, busy: importing || acting,
+          onClose: () => setPreview(null),
+          onImport: (s) => { setPreview(null); doImport([toItem(s)]); },
+          onHide: (s) => hideSessions([s]),
+          onDelete: (list) => setDeleteAsk(list),
+        }),
+        deleteAsk && h(DeleteSourceDialog, {
+          sessions: deleteAsk, busy: acting,
+          onCancel: () => setDeleteAsk(null),
+          onConfirm: deleteSessions,
+        }));
+      return { tools, overlay };
+    }
+
     /** Hit count + first snippet → row tooltip lines. */
     function hitTip(hit, t) {
       if (!hit) return "";
