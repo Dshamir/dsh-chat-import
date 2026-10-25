@@ -1,8 +1,8 @@
     // Session row tools for the discovery list: term highlighting, the preview card, content
     // search polling, the delete-source confirmation and the drop targets on the host sidebar's
     // workspaces. Fragment contract: no import/export; uses COLORS / STYLES / Icon / postJson /
-    // showAppToast / useTranslate / errorText / fmtTime from earlier fragments and
-    // highlightRanges / highlightTerms inlined from lib/highlight.mjs.
+    // showAppToast / useTranslate / errorText / fmtTime / HostModal / HostButton from earlier
+    // fragments and highlightRanges / highlightTerms inlined from lib/highlight.mjs.
 
     // dataTransfer type of dragged session rows (JSON: [{ source, sourcePath, sessionId, cwd? }])
     const SESSION_DRAG_MIME = "application/x-dsh-chat-import-sessions";
@@ -36,17 +36,8 @@
       return h(React.Fragment, null, ...parts);
     }
 
-    // host Modal / Button (same require channel as file-import.js); null on an older host
-    let ToolsModal = null;
-    let ToolsButton = null;
-    try {
-      const primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-      ToolsModal = primitives && typeof primitives.Modal === "function" ? primitives.Modal : null;
-      ToolsButton = primitives && typeof primitives.Button === "function" ? primitives.Button : null;
-    } catch {
-      ToolsModal = null;
-      ToolsButton = null;
-    }
+    // host Modal / Button for the delete confirmation: the probe lives in toast.js (one require
+    // channel for Toast / Modal / Button, architecture D17); both stay null on an older host
 
     const TOOL_STYLES = {
       overlay: {
@@ -207,13 +198,13 @@
           sessions.slice(0, 20).map((s) => h("li", { key: itemKey(s), style: { wordBreak: "break-all" } }, s.title || s.sourcePath)),
           sessions.length > 20 ? h("li", null, "…") : null),
         h("p", { style: { margin: "8px 0 0", fontSize: "12px", color: COLORS.dim } }, t("delete.note")));
-      if (ToolsModal && ToolsButton) {
-        return h(ToolsModal, {
+      if (HostModal && HostButton) {
+        return h(HostModal, {
           open: true, onClose: onCancel, title: t("delete.title"), closeLabel: t("delete.cancel"),
           children: body,
           footer: h(React.Fragment, null,
-            h(ToolsButton, { variant: "outline", disabled: busy, onClick: onCancel }, t("delete.cancel")),
-            h(ToolsButton, { variant: "primary", disabled: busy, autoFocus: true, onClick: onConfirm }, t("delete.confirm"))),
+            h(HostButton, { variant: "outline", disabled: busy, onClick: onCancel }, t("delete.cancel")),
+            h(HostButton, { variant: "primary", disabled: busy, autoFocus: true, onClick: onConfirm }, t("delete.confirm"))),
         });
       }
       return h("div", { role: "dialog", "aria-modal": true, "aria-label": t("delete.title"), style: { ...TOOL_STYLES.overlay, zIndex: 30, background: "rgba(0,0,0,.35)", alignItems: "center", justifyContent: "center" } },
