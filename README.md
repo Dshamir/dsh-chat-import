@@ -92,6 +92,8 @@ dsh plugin --profile web add dsh-chat-import                    # npm package
 
   Click the **Import sessions** button at the bottom of the left sidebar to open the import window. With the DSH Claude Style theme, that button lives in the account menu at the bottom left. Pick the conversations you want and import them in one click.
 
+  Rows carry their own tools: **double-click** a row to preview the conversation (a read-only dry-run — plugin injections skipped, tool calls folded into one line), switch the search box to **In content** to search message bodies instead of titles, **hide** a row reversibly, move a single-session source file to the Recycle Bin, or **drag the row onto a workspace** in the left sidebar to import it there with its timestamps shifted so it sorts to the top. The exact rules are in [docs/USAGE.md](docs/USAGE.md).
+
   If the file came from somewhere else — a web-app export, a script you wrote, a tool this plugin does not list — use **Import from file** at the top of the same window. Type a local path and press Enter, or press **Choose…** to pick files. When the path is a directory, it asks whether to search subfolders. Check the preview, then import. If detection fails, it lists why each candidate parser gave up and points you at the skill that converts the format.
 
   <table>
