@@ -599,13 +599,10 @@
       const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
       const [collapsed, setCollapsed] = useState(new Set()); // 已折叠的工作区分组名
       const [hot, setHot] = useState(NO_HOT); // 点亮中的会话行与其所在分组（见 nextHot）
-      // row tools: content search (search inside transcripts), preview card, delete confirmation, drag hint
+      // 内容搜索（在会话正文里搜）：预览 / 隐藏 / 删源 / 拖拽的状态与请求在
+      // session-tools.js 的 useSessionRowTools 里，面板只留搜索模式与提交词
       const [contentMode, setContentMode] = useState(false);
       const [contentText, setContentText] = useState(""); // submitted content-search text
-      const [preview, setPreview] = useState(null);
-      const [deleteAsk, setDeleteAsk] = useState(null);
-      const [acting, setActing] = useState(false);
-      const [dragging, setDragging] = useState(false);
 
       const { items, setItems, stream, error, warnings } = useSessionScan({
         source, query, epoch, t,
@@ -710,68 +707,10 @@
         if (query) { setQuery(""); setEpoch((n) => n + 1); }
       };
 
-      // hide (reversible: Undo in the toast) / delete source files (Recycle Bin, confirmed)
-      const dropKeys = (keys) => {
-        setItems((prev) => prev.filter((x) => !keys.has(itemKey(x))));
-        setSelected((prev) => {
-          const next = new Map(prev);
-          for (const k of keys) next.delete(k);
-          return next;
-        });
-      };
-      const hideSessions = async (list) => {
-        if (!list.length || acting) return;
-        setActing(true);
-        try {
-          const items = list.map(toItem);
-          const r = await postJson("/api-import/hide", { items });
-          if (!r.ok) { showAppToast(r.error || t("hide.error")); return; }
-          dropKeys(new Set(list.map(itemKey)));
-          if (preview && list.some((x) => itemKey(x) === itemKey(preview))) setPreview(null);
-          showAppToast(t("hide.done", { n: list.length }), [{
-            label: t("hide.undo"),
-            onClick: async () => {
-              const back = await postJson("/api-import/unhide", { items });
-              if (back.ok) setEpoch((n) => n + 1);
-              else showAppToast(back.error || t("hide.error"));
-            },
-          }]);
-        } catch (err) {
-          showAppToast(t("error.request", { msg: errorText(err) }));
-        } finally {
-          setActing(false);
-        }
-      };
-      const deleteSessions = async () => {
-        const list = deleteAsk || [];
-        if (!list.length || acting) return;
-        setActing(true);
-        try {
-          const r = await postJson("/api-import/delete-source", { confirm: true, items: list.map(toItem) });
-          if (!r.ok) { showAppToast(r.error || t("delete.error")); return; }
-          const done = new Set((r.data.results || []).filter((x) => x.status === "deleted").map((x) => x.sourcePath));
-          const failed = (r.data.results || []).filter((x) => x.status !== "deleted");
-          dropKeys(new Set(list.filter((x) => done.has(x.sourcePath)).map(itemKey)));
-          if (preview && done.has(preview.sourcePath)) setPreview(null);
-          const lines = [done.size > 0 ? t("delete.done", { n: done.size }) : ""];
-          if (failed.length > 0) lines.push(t("delete.failed", { n: failed.length, msg: failed[0].error || "" }));
-          showAppToast(lines.filter(Boolean).join(t("result.separator")));
-        } catch (err) {
-          showAppToast(t("error.request", { msg: errorText(err) }));
-        } finally {
-          setActing(false);
-          setDeleteAsk(null);
-        }
-      };
-      // drag source: the row, or the whole selection when the dragged row is part of it
-      const dragItems = (s) => {
-        const key = itemKey(s);
-        const list = selected.has(key) && selected.size > 1 ? [...selected.values()] : [s];
-        return list.map(toItem);
-      };
-      useSidebarWorkspaceDrop((items, ws) => {
-        setDragging(false);
-        doImport(items, { workspace: ws });
+      // 行工具（预览 / 隐藏 / 删源 / 拖到侧栏工作区）：状态、请求与浮层都在 session-tools.js，
+      // 面板只交出列表、选择集与导入流程
+      const rowTools = useSessionRowTools({
+        selected, setItems, setSelected, setEpoch, doImport, terms, importing, t,
       });
 
       // memo 行的回调：实现随每次渲染更新，但暴露给行的函数引用恒定（否则 memo 白做）
@@ -788,25 +727,7 @@
           });
         },
         import: (s) => doImport([toItem(s)]),
-        preview: (s) => setPreview(s),
-        hide: (s) => hideSessions([s]),
-        remove: (list) => setDeleteAsk(list),
-        dragStart: (e, s) => {
-          const items = dragItems(s);
-          e.dataTransfer.setData(SESSION_DRAG_MIME, JSON.stringify(items));
-          e.dataTransfer.setData("text/plain", s.title || s.sourcePath);
-          e.dataTransfer.effectAllowed = "copy";
-          setDragging(true);
-        },
-        dragEnd: () => setDragging(false),
       };
-      const rowTools = useMemo(() => ({
-        preview: (s) => rowActions.current.preview(s),
-        hide: (s) => rowActions.current.hide(s),
-        remove: (list) => rowActions.current.remove(list),
-        dragStart: (e, s) => rowActions.current.dragStart(e, s),
-        dragEnd: () => rowActions.current.dragEnd(),
-      }), []);
       const onHot = useCallback((key, only, group) => setHot((prev) => nextHot(prev, key, only, group)), []);
       const onToggle = useCallback((key) => rowActions.current.toggle(key), []);
       const onImport = useCallback((s) => rowActions.current.import(s), []);
@@ -954,7 +875,7 @@
               hotKey: hot.key,
               groupLit: hot.group === entry.group.name,
               onCollapse, onToggle, onImport, onHot,
-              terms, hits: contentHits, tools: rowTools,
+              terms, hits: contentHits, tools: rowTools.tools,
             })) : null),
           items.length > 0 && h(PageBar, {
             t, page, totalPages, barText, displayTotal, pageSize, importing,
@@ -989,17 +910,5 @@
             }, importing ? t("importing") : t("import.selected", { n: selected.size }))));
       return h("div", { ref: rootRef, style: { display: "flex", flexDirection: "column", minHeight: 0, flex: 1, position: "relative" } },
         body,
-        dragging && h("div", { style: TOOL_STYLES.dragHint, role: "status" }, t("drag.hint")),
-        preview && h(SessionPreview, {
-          session: preview, terms, busy: importing || acting,
-          onClose: () => setPreview(null),
-          onImport: (s) => { setPreview(null); doImport([toItem(s)]); },
-          onHide: (s) => hideSessions([s]),
-          onDelete: (list) => setDeleteAsk(list),
-        }),
-        deleteAsk && h(DeleteSourceDialog, {
-          sessions: deleteAsk, busy: acting,
-          onCancel: () => setDeleteAsk(null),
-          onConfirm: deleteSessions,
-        }));
+        rowTools.overlay);
     }
