@@ -10,6 +10,9 @@
     // host build and change between releases; the row key is the stable hook)
     const WORKSPACE_ROW_SELECTOR = '[data-row-key^="workspace:"]';
     const WORKSPACE_KEY_PREFIX = "workspace:";
+    // content-search polling cadence: the server keeps one job per list key and reuses it while
+    // the text is unchanged
+    const CONTENT_SEARCH_POLL_MS = 400;
 
     const MARK_STYLE = {
       // warn (yellow) token: the brand token is grey in several themes and the mark disappears
@@ -152,9 +155,19 @@
           return undefined;
         }
         let cancelled = false;
+        // A cancelled effect must not fire one more request: the wait below is woken by cleanup and
+        // the loop re-checks cancelled at the top. Without that, the old text posts /api-import/search
+        // once more after the user submitted a new query, and the server cancels every other job of
+        // the same list key (lib/session-search.mjs) — the new search would stop or fall back.
+        let wake = null;
+        const waitTurn = () => new Promise((resolve) => {
+          const timer = setTimeout(() => { wake = null; resolve(); }, CONTENT_SEARCH_POLL_MS);
+          wake = () => { clearTimeout(timer); resolve(); };
+        });
         (async () => {
           setState({ hits: new Map(), scanned: 0, total: 0, done: false, error: null });
           for (;;) {
+            if (cancelled) return;
             let r;
             try {
               r = await postJson("/api-import/search", { source, query, epoch, text });
@@ -172,10 +185,15 @@
             for (const hit of d.hits || []) hits.set(itemKey(hit), hit);
             setState({ hits, scanned: d.scanned || 0, total: d.total || 0, done: d.done === true, error: d.error || null });
             if (d.done) return;
-            await sleep(400);
+            await waitTurn();
           }
         })();
-        return () => { cancelled = true; };
+        return () => {
+          cancelled = true;
+          // woken at once while sleeping: the loop returns before posting again (wake === null has
+          // nothing to do — the in-flight request's own cancelled check handles that case)
+          if (wake) wake();
+        };
       }, [text, source, query, epoch, ready]);
       return state;
     }
